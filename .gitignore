@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+backend/app/data/agri.db
+backend/app/data/uploads/
+backend/.venv/

@@ -1,0 +1,71 @@
+[
+  {
+    "id": "tomato_early_blight",
+    "crop_id": "tomato",
+    "name_en": "Possible Early Blight",
+    "name_kn": "ಸಂಭಾವ್ಯ ಆರಂಭಿಕ ಬ್ಲೈಟ್",
+    "type": "fungal",
+    "details": {
+      "en": {
+        "symptoms": "Brown circular spots with concentric rings on older leaves.",
+        "favorable_conditions": "Warm humid weather, wet leaves for long hours.",
+        "prevention": "Use crop rotation, avoid overhead irrigation, keep field clean.",
+        "management": "Remove heavily infected leaves and follow local extension guidance.",
+        "expert_help_when": "If spread is rapid or many plants are affected."
+      },
+      "kn": {
+        "symptoms": "ಹಳೆಯ ಎಲೆಗಳಲ್ಲಿ ವಲಯಾಕಾರದ ಕಂದು ಚುಕ್ಕೆಗಳು ಕಾಣಿಸಿಕೊಳ್ಳಬಹುದು.",
+        "favorable_conditions": "ಬೆಚ್ಚಗಿನ ತೇವಾಂಶ ಹೆಚ್ಚಿರುವ ಹವಾಮಾನ, ಎಲೆಗಳ ಮೇಲೆ ಹೆಚ್ಚು ಸಮಯ ನೀರು ಇರುವುದು.",
+        "prevention": "ಬೆಳೆ ಚಕ್ರ ಪಾಲನೆ ಮಾಡಿ, ಮೇಲಿಂದ ನೀರು ಹಾಯಿಸುವುದನ್ನು ಕಡಿಮೆ ಮಾಡಿ, ಹೊಲ ಸ್ವಚ್ಛತೆ ಕಾಪಾಡಿ.",
+        "management": "ತೀವ್ರವಾಗಿ ബാധಿತ ಎಲೆಗಳನ್ನು ತೆಗೆಯಿರಿ ಮತ್ತು ಸ್ಥಳೀಯ ಕೃಷಿ ಮಾರ್ಗದರ್ಶನ ಅನುಸರಿಸಿ.",
+        "expert_help_when": "ರೋಗವು ವೇಗವಾಗಿ ಹರಡಿದರೆ ಅಥವಾ ಅನೇಕ ಸಸಿಗಳಿಗೆ ತಗುಲಿದರೆ."
+      }
+    }
+  },
+  {
+    "id": "tomato_leaf_curl",
+    "crop_id": "tomato",
+    "name_en": "Possible Leaf Curl",
+    "name_kn": "ಸಂಭಾವ್ಯ ಎಲೆ ಮುರುಕು",
+    "type": "viral",
+    "details": {
+      "en": {
+        "symptoms": "Upward curling leaves, stunted growth, yellowing.",
+        "favorable_conditions": "High whitefly population and unmanaged weed hosts.",
+        "prevention": "Use healthy seedlings, vector control, and field sanitation.",
+        "management": "Rogue severely affected plants and control whiteflies.",
+        "expert_help_when": "If new plants show quick spread within days."
+      },
+      "kn": {
+        "symptoms": "ಎಲೆಗಳು ಮೇಲೆ ಮುರಿಯುವುದು, ಸಸ್ಯದ ಬೆಳವಣಿಗೆ ಕಡಿಮೆ, ಹಳದಿ ಬಣ್ಣ.",
+        "favorable_conditions": "ವೈಟ್‌ಫ್ಲೈ ಕೀಟದ ಪ್ರಮಾಣ ಹೆಚ್ಚಾಗಿರುವುದು ಮತ್ತು ಗದ್ದೆಯಲ್ಲಿ ಕಳೆ ನಿರ್ವಹಣೆ ಕೊರತೆ.",
+        "prevention": "ಆರೋಗ್ಯಕರ ಸಸಿಗಳನ್ನು ಬಳಸಿ, ವಾಹಕ ಕೀಟ ನಿಯಂತ್ರಣೆ ಮಾಡಿ, ಹೊಲ ಸ್ವಚ್ಛತೆ ಕಾಪಾಡಿ.",
+        "management": "ತೀವ್ರವಾಗಿ ബാധಿತ ಸಸಿಗಳನ್ನು ತೆಗೆದುಹಾಕಿ ಮತ್ತು ವೈಟ್‌ಫ್ಲೈ ನಿಯಂತ್ರಿಸಿ.",
+        "expert_help_when": "ಕೆಲವು ದಿನಗಳಲ್ಲಿ ಹೊಸ ಸಸಿಗಳಿಗೂ ವೇಗವಾಗಿ ತಗುಲಿದರೆ."
+      }
+    }
+  },
+  {
+    "id": "tomato_nitrogen_deficiency",
+    "crop_id": "tomato",
+    "name_en": "Possible Nitrogen Deficiency",
+    "name_kn": "ಸಂಭಾವ್ಯ ನೈಟ್ರೋಜನ್ ಕೊರತೆ",
+    "type": "nutrient deficiency",
+    "details": {
+      "en": {
+        "symptoms": "Older leaves become pale yellow; growth becomes weak.",
+        "favorable_conditions": "Low soil fertility or nutrient leaching after heavy rains.",
+        "prevention": "Soil test when possible and apply balanced nutrition.",
+        "management": "Apply recommended nitrogen source in split doses.",
+        "expert_help_when": "If yellowing persists despite proper nutrient management."
+      },
+      "kn": {
+        "symptoms": "ಹಳೆಯ ಎಲೆಗಳು ಹಳದಿ ಬಣ್ಣಕ್ಕೆ ತಿರುಗುವುದು; ಸಸ್ಯದ ಬೆಳವಣಿಗೆ ನಿಧಾನಗೊಳ್ಳುವುದು.",
+        "favorable_conditions": "ಮಣ್ಣಿನ ಫಲವತ್ತತೆ ಕಡಿಮೆ ಅಥವಾ ಹೆಚ್ಚು ಮಳೆಯಿಂದ ಪೋಷಕಾಂಶ ಹೊರಹೋಗುವುದು.",
+        "prevention": "ಸಾಧ್ಯವಾದರೆ ಮಣ್ಣಿನ ಪರೀಕ್ಷೆ ಮಾಡಿ ಮತ್ತು ಸಮತೋಲನ ಪೋಷಕಾಂಶ ನೀಡಿ.",
+        "management": "ಶಿಫಾರಸ್ಸಾದ ನೈಟ್ರೋಜನ್ ಗೊಬ್ಬರವನ್ನು ಹಂತವಾಗಿ ನೀಡಿ.",
+        "expert_help_when": "ಸರಿಯಾದ ಪೋಷಕ ನಿರ್ವಹಣೆಯ ನಂತರವೂ ಹಳದಿ ಲಕ್ಷಣ ಕಡಿಮೆಯಾಗದಿದ್ದರೆ."
+      }
+    }
+  }
+]

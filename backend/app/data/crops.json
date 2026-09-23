@@ -1,0 +1,35 @@
+[
+  {
+    "id": "tomato",
+    "name_en": "Tomato",
+    "name_kn": "ಟೊಮೆಟೊ",
+    "summary_en": "A common vegetable crop with strong demand and visible leaf symptoms.",
+    "summary_kn": "ಹೆಚ್ಚು ಬೇಡಿಕೆ ಇರುವ ಸಾಮಾನ್ಯ ತರಕಾರಿ ಬೆಳೆ; ಎಲೆಯ ಲಕ್ಷಣಗಳು ಸುಲಭವಾಗಿ ಕಾಣುತ್ತವೆ.",
+    "guide": {
+      "en": {
+        "soil": "Well-drained loamy soil, pH around 6.0 to 7.0.",
+        "climate": "Warm climate with good sunlight; avoid prolonged waterlogging.",
+        "sowing": "Use healthy seeds/seedlings. Raise nursery first, then transplant.",
+        "planting_method": "Transplant 20-30 day seedlings with proper spacing.",
+        "water": "Keep soil moist, not flooded. Increase watering during flowering and fruit set.",
+        "nutrients": "Use balanced NPK and add organic manure. Split fertilizer doses.",
+        "growth_stages": "Nursery, vegetative growth, flowering, fruit set, ripening.",
+        "common_problems": "Early blight, leaf curl, whitefly, nutrient deficiency.",
+        "harvest": "Usually 70-90 days after transplant depending on variety.",
+        "post_harvest": "Sort and store in cool dry place. Avoid bruising during transport."
+      },
+      "kn": {
+        "soil": "ಚೆನ್ನಾಗಿ ನೀರು ಹೊರಹೋಗುವ ಲೋಮಿ ಮಣ್ಣು, pH ಸುಮಾರು 6.0 ರಿಂದ 7.0.",
+        "climate": "ಬೆಚ್ಚಗಿನ ಹವಾಮಾನ ಮತ್ತು ಉತ್ತಮ ಸೂರ್ಯಕಿರಣ ಅಗತ್ಯ; ನೀರು ನಿಲ್ಲುವುದನ್ನು ತಪ್ಪಿಸಿ.",
+        "sowing": "ಆರೋಗ್ಯಕರ ಬೀಜ/ಸಸಿಗಳನ್ನು ಬಳಸಿ. ಮೊದಲು ನರ್ಸರಿ ಮಾಡಿ ನಂತರ ನೆಡುವುದು.",
+        "planting_method": "20-30 ದಿನದ ಸಸಿಗಳನ್ನು ಸರಿಯಾದ ಅಂತರದಲ್ಲಿ ನೆಡಿರಿ.",
+        "water": "ಮಣ್ಣು ತೇವವಾಗಿರಲಿ, ನೀರು ನಿಲ್ಲದಂತೆ ನೋಡಿ. ಹೂ ಬಿಡುವ ಮತ್ತು ಹಣ್ಣು ಕಟ್ಟುವ ಸಮಯದಲ್ಲಿ ನೀರು ಹೆಚ್ಚಿಸಿ.",
+        "nutrients": "ಸಮತೋಲನ NPK ಮತ್ತು ಸಾವಯವ ಗೊಬ್ಬರ ಬಳಸಿ. ಗೊಬ್ಬರವನ್ನು ಹಂತ ಹಂತವಾಗಿ ನೀಡಿ.",
+        "growth_stages": "ನರ್ಸರಿ, ಸಸ್ಯ ವೃದ್ಧಿ, ಹೂ ಬರುವುದು, ಹಣ್ಣು ಕಟ್ಟುವುದು, ಪಾಕವಾಗುವುದು.",
+        "common_problems": "ಆರಂಭಿಕ ಬ್ಲೈಟ್, ಎಲೆ ಮುರುಕು, ವೈಟ್‌ಫ್ಲೈ, ಪೋಷಕಾಂಶ ಕೊರತೆ.",
+        "harvest": "ಜಾತಿಯ ಮೇಲೆ ಅವಲಂಬಿಸಿ ಸಾಮಾನ್ಯವಾಗಿ ನೆಟ್ಟ 70-90 ದಿನಗಳಲ್ಲಿ ಕೊಯ್ಲು.",
+        "post_harvest": "ವಿಂಗಡಿಸಿ ತಂಪಾದ ಒಣ ಸ್ಥಳದಲ್ಲಿ ಇಡಿ. ಸಾಗಣದಲ್ಲಿ ಹಾನಿಯಾಗದಂತೆ ಜಾಗರೂಕರಾಗಿ."
+      }
+    }
+  }
+]
