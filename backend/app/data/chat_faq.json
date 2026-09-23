@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "crop_id": "tomato",
+    "intent": "water_need",
+    "keywords": ["water", "watering", "irrigation", "ನೀರು"],
+    "answer_en": "Tomato needs regular moisture, especially during flowering and fruit set. Keep soil moist but avoid standing water.",
+    "answer_kn": "ಟೊಮೆಟೊ ಬೆಳೆಗೆ ನಿಯಮಿತ ತೇವಾಂಶ ಅಗತ್ಯ, ವಿಶೇಷವಾಗಿ ಹೂ ಮತ್ತು ಹಣ್ಣು ಕಟ್ಟುವ ಸಮಯದಲ್ಲಿ. ಮಣ್ಣು ತೇವವಾಗಿರಲಿ, ನೀರು ನಿಲ್ಲಬಾರದು."
+  },
+  {
+    "id": 2,
+    "crop_id": "tomato",
+    "intent": "yellow_leaves",
+    "keywords": ["yellow", "leaf yellow", "yellowing", "ಹಳದಿ"],
+    "answer_en": "Yellow leaves may be due to nutrient deficiency, water stress, or disease. Check soil moisture and nutrient schedule first.",
+    "answer_kn": "ಎಲೆಗಳು ಹಳದಿಯಾಗುವುದು ಪೋಷಕಾಂಶ ಕೊರತೆ, ನೀರಿನ ಒತ್ತಡ ಅಥವಾ ರೋಗದಿಂದಾಗಿರಬಹುದು. ಮೊದಲು ಮಣ್ಣಿನ ತೇವಾಂಶ ಮತ್ತು ಗೊಬ್ಬರ ವೇಳಾಪಟ್ಟಿ ಪರಿಶೀಲಿಸಿ."
+  },
+  {
+    "id": 3,
+    "crop_id": "tomato",
+    "intent": "harvest_time",
+    "keywords": ["harvest", "ready", "ಕೊಯ್ಲು"],
+    "answer_en": "Most tomato varieties are ready around 70-90 days after transplant. Harvest at the mature color stage suitable for your market.",
+    "answer_kn": "ಹೆಚ್ಚಿನ ಟೊಮೆಟೊ ಜಾತಿಗಳು ನೆಟ್ಟ 70-90 ದಿನಗಳಲ್ಲಿ ಸಿದ್ಧವಾಗುತ್ತವೆ. ಮಾರುಕಟ್ಟೆ ಅವಶ್ಯಕತೆಗೆ ತಕ್ಕ ಪರಿಪಕ್ವ ಬಣ್ಣದ ಹಂತದಲ್ಲಿ ಕೊಯ್ಲು ಮಾಡಿ."
+  },
+  {
+    "id": 4,
+    "crop_id": "tomato",
+    "intent": "disease_prevention",
+    "keywords": ["prevent", "disease", "protect", "ರೋಗ ತಡೆ"],
+    "answer_en": "Use clean seedlings, maintain spacing, avoid long leaf wetness, and monitor fields regularly for early symptoms.",
+    "answer_kn": "ಸ್ವಚ್ಛ ಸಸಿಗಳನ್ನು ಬಳಸಿ, ಸರಿಯಾದ ಅಂತರ ಕಾಪಾಡಿ, ಎಲೆಗಳು ಹೆಚ್ಚು ಸಮಯ ಒದ್ದೆಯಾಗಿರದಂತೆ ನೋಡಿಕೊಳ್ಳಿ ಮತ್ತು ನಿಯಮಿತವಾಗಿ ಹೊಲ ಪರಿಶೀಲಿಸಿ."
+  }
+]
