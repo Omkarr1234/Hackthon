@@ -1,673 +1,1030 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import "./App.css";
 
-const translations = {
-  en: {
-    title: "Smart Crop Assistant",
-    subtitle: "Crop guidance, health screening, and farming assistance",
-    chooseLanguage: "Choose your language",
-    start: "Start",
-    cropSelection: "Select Crop",
-    cropGuide: "Crop Guide",
-    healthCheck: "Crop Health Check",
-    assistant: "Farming Assistant",
-    upload: "Upload a crop image",
-    analyze: "Analyze Image",
-    loading: "Loading...",
-    noResult: "Upload an image to check crop health.",
-    send: "Send",
-    placeholder: "Ask a farming question...",
-    guide: "Guide",
-    health: "Health",
-    chat: "Assistant",
-    symptoms: "Symptoms",
-    prevention: "Prevention",
-    management: "Management",
-    conditions: "Favorable Conditions",
-    expert: "When to seek expert help",
-    confidence: "Confidence",
-    disclaimer:
-      "This tool provides general agricultural information and should not replace advice from a qualified agricultural expert.",
+/* =========================================================
+   AGRI SAATHI AI - FRONTEND ONLY
+   No ./data import
+   No backend required for demo
+========================================================= */
+
+const CROPS = [
+  ["Rice", "🌾", "Cereal", "Water-loving crop", "Kharif"],
+  ["Wheat", "🌾", "Cereal", "Cool-season crop", "Rabi"],
+  ["Maize", "🌽", "Cereal", "Warm-season crop", "Kharif"],
+  ["Millet", "🌾", "Cereal", "Drought tolerant", "Kharif"],
+  ["Sorghum", "🌾", "Cereal", "Drought tolerant", "Kharif"],
+  ["Barley", "🌾", "Cereal", "Cool-season crop", "Rabi"],
+  ["Ragi", "🌾", "Millet", "Suitable for dry areas", "Kharif"],
+  ["Bajra", "🌾", "Millet", "Heat tolerant", "Kharif"],
+  ["Chickpea", "🫘", "Pulse", "Rabi pulse crop", "Rabi"],
+  ["Pigeon Pea", "🫘", "Pulse", "Long-duration pulse", "Kharif"],
+  ["Green Gram", "🌱", "Pulse", "Short-duration pulse", "Kharif"],
+  ["Black Gram", "🌱", "Pulse", "Pulse crop", "Kharif"],
+  ["Lentil", "🌱", "Pulse", "Cool-season pulse", "Rabi"],
+  ["Soybean", "🌱", "Oilseed", "Major oilseed crop", "Kharif"],
+  ["Groundnut", "🥜", "Oilseed", "Oilseed and food crop", "Kharif"],
+  ["Mustard", "🌼", "Oilseed", "Rabi oilseed", "Rabi"],
+  ["Sunflower", "🌻", "Oilseed", "Oilseed crop", "Both"],
+  ["Sesame", "🌱", "Oilseed", "Drought tolerant", "Kharif"],
+  ["Cotton", "☁️", "Commercial", "Fibre crop", "Kharif"],
+  ["Sugarcane", "🎋", "Commercial", "Long-duration crop", "Both"],
+  ["Tobacco", "🌿", "Commercial", "Commercial crop", "Rabi"],
+  ["Tomato", "🍅", "Vegetable", "Fruit vegetable", "Both"],
+  ["Potato", "🥔", "Vegetable", "Tuber crop", "Rabi"],
+  ["Onion", "🧅", "Vegetable", "Bulb crop", "Both"],
+  ["Garlic", "🧄", "Vegetable", "Bulb crop", "Rabi"],
+  ["Chilli", "🌶️", "Vegetable", "Spice crop", "Both"],
+  ["Brinjal", "🍆", "Vegetable", "Fruit vegetable", "Both"],
+  ["Okra", "🥬", "Vegetable", "Warm-season vegetable", "Both"],
+  ["Cabbage", "🥬", "Vegetable", "Cool-season vegetable", "Rabi"],
+  ["Cauliflower", "🥦", "Vegetable", "Cool-season vegetable", "Rabi"],
+  ["Carrot", "🥕", "Vegetable", "Root vegetable", "Rabi"],
+  ["Radish", "🌱", "Vegetable", "Root vegetable", "Rabi"],
+  ["Beans", "🫘", "Vegetable", "Legume vegetable", "Both"],
+  ["Peas", "🫛", "Vegetable", "Cool-season vegetable", "Rabi"],
+  ["Pumpkin", "🎃", "Vegetable", "Cucurbit", "Both"],
+  ["Cucumber", "🥒", "Vegetable", "Cucurbit", "Both"],
+  ["Watermelon", "🍉", "Fruit", "Warm-season fruit", "Summer"],
+  ["Muskmelon", "🍈", "Fruit", "Warm-season fruit", "Summer"],
+  ["Banana", "🍌", "Fruit", "Tropical fruit", "Both"],
+  ["Mango", "🥭", "Fruit", "Fruit tree", "Both"],
+  ["Papaya", "🍊", "Fruit", "Tropical fruit", "Both"],
+  ["Guava", "🍐", "Fruit", "Fruit tree", "Both"],
+  ["Pomegranate", "🍎", "Fruit", "Dryland fruit", "Both"],
+  ["Grapes", "🍇", "Fruit", "Fruit crop", "Both"],
+  ["Coconut", "🥥", "Plantation", "Plantation crop", "Both"],
+  ["Turmeric", "🟡", "Spice", "Rhizome crop", "Kharif"],
+  ["Ginger", "🫚", "Spice", "Rhizome crop", "Kharif"],
+  ["Cardamom", "🌿", "Spice", "Plantation spice", "Both"],
+  ["Black Pepper", "🌿", "Spice", "Climbing spice", "Both"],
+];
+
+const DISEASES = [
+  ["Rice Blast", "Rice", "Fungal", "Leaf lesions, neck infection"],
+  ["Bacterial Leaf Blight", "Rice", "Bacterial", "Yellowing and drying leaves"],
+  ["Brown Planthopper", "Rice", "Insect", "Yellowing and hopper damage"],
+  ["Wheat Rust", "Wheat", "Fungal", "Orange/brown rust pustules"],
+  ["Powdery Mildew", "Many crops", "Fungal", "White powder-like growth"],
+  ["Early Blight", "Tomato", "Fungal", "Dark circular leaf spots"],
+  ["Late Blight", "Tomato/Potato", "Fungal", "Dark water-soaked lesions"],
+  ["Tomato Leaf Curl", "Tomato", "Viral", "Curling and yellowing leaves"],
+  ["Fruit Borer", "Tomato/Chilli/Brinjal", "Insect", "Holes in fruits"],
+  ["Aphids", "Many crops", "Insect", "Small insects and curling leaves"],
+  ["Thrips", "Chilli/Onion", "Insect", "Silvery leaf damage"],
+  ["Whitefly", "Many crops", "Insect", "Small white flying insects"],
+  ["Fall Armyworm", "Maize", "Insect", "Windowing and holes in leaves"],
+  ["Wilt", "Tomato/Chickpea", "Fungal", "Sudden wilting"],
+  ["Root Rot", "Many crops", "Fungal", "Root decay and poor growth"],
+  ["Anthracnose", "Mango/Chilli", "Fungal", "Dark sunken lesions"],
+  ["Downy Mildew", "Vegetables", "Fungal", "Yellow patches and underside growth"],
+  ["Yellow Mosaic Virus", "Soybean/Beans", "Viral", "Yellow mosaic patterns"],
+  ["Purple Blotch", "Onion", "Fungal", "Purple leaf lesions"],
+  ["Red Rot", "Sugarcane", "Fungal", "Red internal stalk tissue"],
+];
+
+const PLANT_DATABASE = {
+  tomato: {
+    name: "Tomato",
+    icon: "🍅",
+    type: "Vegetable",
+    soil: "Well-drained loamy soil",
+    water: "Regular irrigation; avoid waterlogging",
+    temperature: "20–30°C",
+    problems: "Early blight, leaf curl, fruit borer",
+    harvest: "About 60–90 days after transplanting",
   },
-  kn: {
-    title: "ಸ್ಮಾರ್ಟ್ ಬೆಳೆ ಸಹಾಯಕ",
-    subtitle: "ಬೆಳೆ ಮಾರ್ಗದರ್ಶನ, ಆರೋಗ್ಯ ಪರಿಶೀಲನೆ ಮತ್ತು ಕೃಷಿ ಸಹಾಯ",
-    chooseLanguage: "ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ",
-    start: "ಪ್ರಾರಂಭಿಸಿ",
-    cropSelection: "ಬೆಳೆ ಆಯ್ಕೆಮಾಡಿ",
-    cropGuide: "ಬೆಳೆ ಮಾರ್ಗದರ್ಶಿ",
-    healthCheck: "ಬೆಳೆ ಆರೋಗ್ಯ ಪರಿಶೀಲನೆ",
-    assistant: "ಕೃಷಿ ಸಹಾಯಕ",
-    upload: "ಬೆಳೆಯ ಚಿತ್ರವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",
-    analyze: "ಚಿತ್ರ ಪರಿಶೀಲಿಸಿ",
-    loading: "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
-    noResult: "ಬೆಳೆಯ ಆರೋಗ್ಯ ಪರಿಶೀಲಿಸಲು ಚಿತ್ರವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
-    send: "ಕಳುಹಿಸಿ",
-    placeholder: "ಕೃಷಿಗೆ ಸಂಬಂಧಿಸಿದ ಪ್ರಶ್ನೆಯನ್ನು ಕೇಳಿ...",
-    guide: "ಮಾರ್ಗದರ್ಶಿ",
-    health: "ಆರೋಗ್ಯ",
-    chat: "ಸಹಾಯಕ",
-    symptoms: "ಲಕ್ಷಣಗಳು",
-    prevention: "ತಡೆಗಟ್ಟುವಿಕೆ",
-    management: "ನಿರ್ವಹಣೆ",
-    conditions: "ಅನುಕೂಲಕರ ಪರಿಸ್ಥಿತಿಗಳು",
-    expert: "ತಜ್ಞರ ಸಹಾಯ ಯಾವಾಗ ಪಡೆಯಬೇಕು",
-    confidence: "ವಿಶ್ವಾಸಾರ್ಹತೆ",
-    disclaimer:
-      "ಈ ಸಾಧನವು ಸಾಮಾನ್ಯ ಕೃಷಿ ಮಾಹಿತಿಯನ್ನು ನೀಡುತ್ತದೆ. ಅಗತ್ಯವಿದ್ದರೆ ಅರ್ಹ ಕೃಷಿ ತಜ್ಞರ ಸಲಹೆ ಪಡೆಯಿರಿ.",
+  rice: {
+    name: "Rice",
+    icon: "🌾",
+    type: "Cereal",
+    soil: "Clay or clay-loam with good water retention",
+    water: "Requires adequate moisture",
+    temperature: "20–35°C",
+    problems: "Blast, bacterial blight, planthopper",
+    harvest: "Usually 100–150 days depending on variety",
+  },
+  wheat: {
+    name: "Wheat",
+    icon: "🌾",
+    type: "Cereal",
+    soil: "Well-drained loamy soil",
+    water: "Irrigation at critical growth stages",
+    temperature: "10–25°C",
+    problems: "Rust, aphids, termites",
+    harvest: "Usually 110–150 days",
+  },
+  maize: {
+    name: "Maize",
+    icon: "🌽",
+    type: "Cereal",
+    soil: "Fertile, well-drained soil",
+    water: "Important around flowering and grain filling",
+    temperature: "21–30°C",
+    problems: "Fall armyworm, stalk borer, leaf blight",
+    harvest: "Approximately 90–120 days",
+  },
+  potato: {
+    name: "Potato",
+    icon: "🥔",
+    type: "Vegetable",
+    soil: "Loose sandy-loam soil",
+    water: "Frequent moderate irrigation",
+    temperature: "15–20°C",
+    problems: "Late blight, aphids, tuber moth",
+    harvest: "Approximately 70–120 days",
+  },
+  onion: {
+    name: "Onion",
+    icon: "🧅",
+    type: "Vegetable",
+    soil: "Well-drained loamy soil",
+    water: "Regular irrigation, reduce before harvest",
+    temperature: "13–25°C",
+    problems: "Thrips, purple blotch, bulb rot",
+    harvest: "Approximately 90–150 days",
+  },
+  chilli: {
+    name: "Chilli",
+    icon: "🌶️",
+    type: "Vegetable/Spice",
+    soil: "Well-drained loamy soil",
+    water: "Regular but avoid standing water",
+    temperature: "20–30°C",
+    problems: "Thrips, leaf curl, fruit rot",
+    harvest: "Approximately 120–150 days",
+  },
+  banana: {
+    name: "Banana",
+    icon: "🍌",
+    type: "Fruit",
+    soil: "Deep fertile soil",
+    water: "Regular irrigation",
+    temperature: "20–35°C",
+    problems: "Sigatoka, Panama wilt, bunchy top",
+    harvest: "Approximately 11–14 months",
+  },
+  mango: {
+    name: "Mango",
+    icon: "🥭",
+    type: "Fruit",
+    soil: "Deep well-drained soil",
+    water: "Moderate; manage irrigation around flowering",
+    temperature: "24–30°C",
+    problems: "Anthracnose, hopper, powdery mildew",
+    harvest: "Variety dependent",
+  },
+  sugarcane: {
+    name: "Sugarcane",
+    icon: "🎋",
+    type: "Commercial",
+    soil: "Deep fertile loamy soil",
+    water: "Regular irrigation",
+    temperature: "20–35°C",
+    problems: "Red rot, stem borer, whitefly",
+    harvest: "Approximately 10–18 months",
   },
 };
 
-const demoCrops = [
-  {
-    id: "rice",
-    name: "Rice",
-    knName: "ಭತ್ತ",
-    summary: "Guidance for rice cultivation and common crop problems.",
-    guide: {
-      soil: "Clay or loamy soil with good water retention",
-      water: "Maintain adequate water during important growth stages",
-      fertilizer: "Use soil-test-based fertilizer recommendations",
-      pests: "Monitor regularly for insects and leaf damage",
-      harvesting: "Harvest when grains reach appropriate maturity",
-    },
-  },
-  {
-    id: "tomato",
-    name: "Tomato",
-    knName: "ಟೊಮ್ಯಾಟೊ",
-    summary: "Growing, watering, and disease-management guidance.",
-    guide: {
-      soil: "Well-drained fertile soil",
-      water: "Water consistently without prolonged waterlogging",
-      fertilizer: "Apply balanced nutrients based on crop requirements",
-      pests: "Inspect leaves and fruits regularly",
-      harvesting: "Harvest fruits according to the intended market stage",
-    },
-  },
-  {
-    id: "cotton",
-    name: "Cotton",
-    knName: "ಹತ್ತಿ",
-    summary: "Cotton crop management and health guidance.",
-    guide: {
-      soil: "Well-drained black or loamy soil",
-      water: "Avoid excessive irrigation",
-      fertilizer: "Follow soil-test-based nutrient management",
-      pests: "Monitor for bollworms and sucking pests",
-      harvesting: "Pick mature open bolls at the correct stage",
-    },
-  },
-];
+function getPlantData(name) {
+  const key = name.toLowerCase().replaceAll(" ", "");
+  return (
+    PLANT_DATABASE[key] || {
+      name,
+      icon: "🌱",
+      type: "Crop / Plant",
+      soil: "Well-drained soil suited to the crop",
+      water: "Irrigation should follow crop and soil conditions",
+      temperature: "Depends on variety and region",
+      problems: "Disease and pest risk depends on local conditions",
+      harvest: "Depends on crop and variety",
+    }
+  );
+}
+
+function agricultureAI(question) {
+  const q = question.toLowerCase();
+
+  if (!q.trim()) {
+    return "Please type an agriculture question.";
+  }
+
+  if (q.includes("npk")) {
+    return "NPK means Nitrogen, Phosphorus and Potassium. Nitrogen mainly supports vegetative growth, phosphorus supports roots and reproductive growth, and potassium supports water regulation and stress response. Exact fertilizer quantities should be based on a soil test and crop requirement.";
+  }
+
+  if (q.includes("fertilizer") || q.includes("fertiliser")) {
+    return "For fertilizer planning, first consider the crop, soil-test NPK, soil pH, growth stage and local recommendations. Avoid applying exact quantities without a soil test.";
+  }
+
+  if (q.includes("water") || q.includes("irrigation")) {
+    return "Irrigation depends on crop, soil type, weather and growth stage. Check soil moisture before irrigating and avoid prolonged waterlogging.";
+  }
+
+  if (q.includes("disease") || q.includes("leaf") || q.includes("pest")) {
+    return "For a plant problem, upload a clear photo of the affected leaf, stem or fruit in the Plant Doctor section. The demo scanner will provide a preliminary visual assessment. It is not a laboratory diagnosis.";
+  }
+
+  if (q.includes("rice")) {
+    return "Rice generally performs well in warm conditions with adequate water availability. Common issues include blast, bacterial leaf blight and planthoppers.";
+  }
+
+  if (q.includes("tomato")) {
+    return "Tomato prefers well-drained soil and regular irrigation. Common problems include early blight, leaf curl and fruit borer.";
+  }
+
+  if (q.includes("crop")) {
+    return "Crop selection should consider soil, water availability, temperature, rainfall, season, market demand and local recommendations. Open Crop Explorer to compare crops.";
+  }
+
+  if (
+    q.includes("hello") ||
+    q.includes("hi") ||
+    q.includes("namaste")
+  ) {
+    return "Namaste! 🌱 I am Agri Saathi AI. You can ask me about crops, soil, irrigation, fertilizer, pests and plant diseases.";
+  }
+
+  return "I can help with crops, soil, irrigation, NPK, fertilizer, pests and plant diseases. Try asking: “What fertilizer does tomato need?” or “My rice leaves are yellow, what should I check?”";
+}
 
 function App() {
-  const [language, setLanguage] = useState("en");
-  const [started, setStarted] = useState(false);
+  const [page, setPage] = useState("home");
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
 
-  const [crops, setCrops] = useState([]);
-  const [selectedCrop, setSelectedCrop] = useState(null);
+  const [users, setUsers] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("agriUsers") || "{}");
+    } catch {
+      return {};
+    }
+  });
 
-  const [activeTab, setActiveTab] = useState("guide");
+  const [user, setUser] = useState(null);
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
-  const [image, setImage] = useState(null);
-  const [preview, setPreview] = useState("");
-
-  const [screeningResult, setScreeningResult] = useState(null);
-  const [conditionDetails, setConditionDetails] = useState(null);
+  const [registerName, setRegisterName] = useState("");
+  const [registerPhone, setRegisterPhone] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
 
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [cropSearch, setCropSearch] = useState("");
+  const [cropCategory, setCropCategory] = useState("All");
 
-  const t = translations[language];
+  const [diseaseSearch, setDiseaseSearch] = useState("");
 
-  useEffect(() => {
-    loadCrops();
-  }, []);
+  const [selectedPlant, setSelectedPlant] = useState(null);
+  const [plantFile, setPlantFile] = useState(null);
+  const [plantPreview, setPlantPreview] = useState("");
+  const [scanResult, setScanResult] = useState(null);
 
-  function loadCrops() {
-    setCrops(demoCrops);
+  const [language, setLanguage] = useState("English");
 
-    if (!selectedCrop) {
-      setSelectedCrop(demoCrops[0]);
-    }
-  }
+  const categories = [
+    "All",
+    ...new Set(CROPS.map((crop) => crop[2])),
+  ];
 
-  function changeLanguage(lang) {
-    setLanguage(lang);
-  }
+  const filteredCrops = useMemo(() => {
+    return CROPS.filter((crop) => {
+      const matchesSearch = crop[0]
+        .toLowerCase()
+        .includes(cropSearch.toLowerCase());
 
-  function selectCrop(crop) {
-    setSelectedCrop(crop);
-    setScreeningResult(null);
-    setConditionDetails(null);
-    setError("");
-  }
+      const matchesCategory =
+        cropCategory === "All" || crop[2] === cropCategory;
 
-  function handleImageChange(event) {
-    const file = event.target.files?.[0];
+      return matchesSearch && matchesCategory;
+    });
+  }, [cropSearch, cropCategory]);
 
-    if (!file) return;
+  const filteredDiseases = useMemo(() => {
+    return DISEASES.filter((disease) =>
+      disease.join(" ").toLowerCase().includes(diseaseSearch.toLowerCase())
+    );
+  }, [diseaseSearch]);
 
-    if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file.");
+  function register() {
+    if (!registerName || !registerPhone || !registerPassword) {
+      alert("Please fill all fields.");
       return;
     }
 
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
-    setScreeningResult(null);
-    setConditionDetails(null);
-    setError("");
-  }
-
-  function analyzeImage() {
-    if (!image) {
-      setError("Please upload a crop image first.");
-      return;
-    }
-
-    if (!selectedCrop) {
-      setError("Please select a crop first.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    // Demo frontend result.
-    // Replace this section with your backend API call later.
-    setTimeout(() => {
-      setScreeningResult({
-        possible_condition_name:
-          selectedCrop.id === "tomato"
-            ? "Possible Leaf Disease"
-            : "Possible Crop Stress",
-        confidence: 0.82,
-        disclaimer:
-          "This is a preliminary screening result and should be confirmed by an agricultural expert.",
-        escalation_note:
-          "If the condition is spreading rapidly, contact your local agricultural officer or expert.",
-      });
-
-      setConditionDetails({
-        name:
-          selectedCrop.id === "tomato"
-            ? "Possible Leaf Disease"
-            : "Possible Crop Stress",
-        type: "Preliminary screening",
-        symptoms:
-          "Changes in leaf colour, spots, wilting, reduced growth, or other visible abnormalities may occur.",
-        favorable_conditions:
-          "Stress can be associated with unsuitable moisture, nutrient imbalance, pests, diseases, or environmental conditions.",
-        prevention:
-          "Maintain good field hygiene, monitor crops regularly, use suitable irrigation, and follow recommended nutrient management.",
-        management:
-          "Remove severely affected plant material where appropriate and consult a qualified agricultural expert before applying pesticides.",
-        expert_help_when:
-          "Seek expert assistance when symptoms spread quickly, affect a large part of the crop, or the cause is uncertain.",
-      });
-
-      setLoading(false);
-    }, 1200);
-  }
-
-  function askQuestion(event) {
-    event.preventDefault();
-
-    const text = question.trim();
-
-    if (!text) return;
-
-    const userMessage = {
-      role: "user",
-      text,
+    const nextUsers = {
+      ...users,
+      [registerPhone]: {
+        name: registerName,
+        password: registerPassword,
+      },
     };
 
-    setMessages((previous) => [...previous, userMessage]);
+    setUsers(nextUsers);
+    localStorage.setItem("agriUsers", JSON.stringify(nextUsers));
 
-    setQuestion("");
-    setLoading(true);
-
-    setTimeout(() => {
-      const answer =
-        language === "kn"
-          ? `${selectedCrop?.knName || "ಬೆಳೆ"} ಕುರಿತು ನಿಮ್ಮ ಪ್ರಶ್ನೆಗೆ ಸಾಮಾನ್ಯ ಸಲಹೆ: ಬೆಳೆಯನ್ನು ನಿಯಮಿತವಾಗಿ ಪರಿಶೀಲಿಸಿ, ಮಣ್ಣಿನ ತೇವಾಂಶವನ್ನು ಗಮನಿಸಿ ಮತ್ತು ಯಾವುದೇ ರೋಗ ಅಥವಾ ಕೀಟದ ಲಕ್ಷಣಗಳು ಕಂಡುಬಂದರೆ ಕೃಷಿ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ.`
-          : `For ${selectedCrop?.name || "your crop"}, regularly inspect the plants, monitor soil moisture and nutrient conditions, and contact an agricultural expert if you notice rapidly spreading pests or disease.`;
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "assistant",
-          text: answer,
-        },
-      ]);
-
-      setLoading(false);
-    }, 700);
+    alert("Account created successfully.");
+    setShowRegister(false);
   }
 
-  if (!started) {
+  function login() {
+    const existing = users[loginPhone];
+
+    if (!existing || existing.password !== loginPassword) {
+      alert("Invalid mobile number or password.");
+      return;
+    }
+
+    setUser({
+      name: existing.name,
+      phone: loginPhone,
+    });
+
+    setLoggedIn(true);
+    setPage("home");
+  }
+
+  function logout() {
+    setLoggedIn(false);
+    setUser(null);
+    setPage("home");
+  }
+
+  function askAI() {
+    if (!question.trim()) return;
+
+    const answer = agricultureAI(question);
+
+    setMessages((old) => [
+      ...old,
+      { role: "user", text: question },
+      { role: "assistant", text: answer },
+    ]);
+
+    setQuestion("");
+  }
+
+  function handlePlantFile(file) {
+    if (!file) return;
+
+    setPlantFile(file);
+    setPlantPreview(URL.createObjectURL(file));
+    setScanResult(null);
+  }
+
+  function analyzePlant() {
+    if (!plantFile) {
+      alert("Please capture or upload a plant photo.");
+      return;
+    }
+
+    const name =
+      selectedPlant?.name ||
+      "Plant / Crop";
+
+    setScanResult({
+      plant: name,
+      confidence: 72,
+      condition: "Possible leaf stress / disease symptoms",
+      advice:
+        "The photo shows visual symptoms that may be associated with plant stress. Check the underside of leaves, irrigation, recent weather and nearby plants. For treatment decisions, confirm the diagnosis with a local agriculture expert.",
+    });
+  }
+
+  function speakQuestion() {
+    if (!("webkitSpeechRecognition" in window)) {
+      alert("Voice recognition is not supported by this browser. You can use Chrome.");
+      return;
+    }
+
+    const Recognition = window.webkitSpeechRecognition;
+    const recognition = new Recognition();
+
+    recognition.lang = language === "Kannada" ? "kn-IN" : "en-IN";
+    recognition.start();
+
+    recognition.onresult = (event) => {
+      setQuestion(event.results[0][0].transcript);
+    };
+  }
+
+  function home() {
     return (
-      <main className="welcome-page">
-        <div className="welcome-card">
-          <div className="logo">🌱</div>
+      <>
+        <section className="hero">
+          <div>
+            <div className="eyebrow">SMART FARMING PLATFORM</div>
+            <h1>
+              Grow smarter.
+              <br />
+              <span>Farm better.</span>
+            </h1>
+            <p>
+              AI-powered crop guidance, plant health screening,
+              disease information and farming assistance.
+            </p>
 
-          <h1>{t.title}</h1>
-
-          <p className="subtitle">{t.subtitle}</p>
-
-          <h3>{t.chooseLanguage}</h3>
-
-          <div className="language-selection">
-            <button
-              className={language === "en" ? "language active" : "language"}
-              onClick={() => changeLanguage("en")}
-            >
-              🇬🇧 English
-            </button>
-
-            <button
-              className={language === "kn" ? "language active" : "language"}
-              onClick={() => changeLanguage("kn")}
-            >
-              🇮🇳 ಕನ್ನಡ
-            </button>
+            <div className="hero-actions">
+              <button onClick={() => setPage("assistant")}>
+                Ask AI Assistant
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setPage("doctor")}
+              >
+                Plant Doctor
+              </button>
+            </div>
           </div>
 
-          <button
-            className="primary-button start-button"
-            onClick={() => setStarted(true)}
-          >
-            {t.start} →
-          </button>
+          <div className="hero-visual">
+            <div className="sun">☀️</div>
+            <div className="big-plant">🌱</div>
+            <div className="field">🌾 🌾 🌾 🌾</div>
+          </div>
+        </section>
+
+        <section className="stats">
+          <div>
+            <strong>{CROPS.length}+</strong>
+            <span>Crops</span>
+          </div>
+          <div>
+            <strong>{DISEASES.length}+</strong>
+            <span>Issues</span>
+          </div>
+          <div>
+            <strong>24/7</strong>
+            <span>Assistant</span>
+          </div>
+          <div>
+            <strong>EN / KN</strong>
+            <span>Language</span>
+          </div>
+        </section>
+
+        <section>
+          <div className="section-heading">
+            <div>
+              <span>FARM TOOLS</span>
+              <h2>Everything you need</h2>
+            </div>
+          </div>
+
+          <div className="feature-grid">
+            <Feature
+              icon="🤖"
+              title="AI Assistant"
+              text="Ask farming questions by text or voice."
+              onClick={() => setPage("assistant")}
+            />
+            <Feature
+              icon="📷"
+              title="Plant Doctor"
+              text="Capture a plant photo and check symptoms."
+              onClick={() => setPage("doctor")}
+            />
+            <Feature
+              icon="🌾"
+              title="Crop Explorer"
+              text="Explore crops, soil and growing information."
+              onClick={() => setPage("crops")}
+            />
+            <Feature
+              icon="🦠"
+              title="Disease Guide"
+              text="Search common crop diseases and pests."
+              onClick={() => setPage("diseases")}
+            />
+          </div>
+        </section>
+
+        <section className="info-banner">
+          <div className="banner-icon">🌱</div>
+          <div>
+            <h3>Built for farmers</h3>
+            <p>
+              Simple tools designed to help farmers make
+              better-informed crop and plant health decisions.
+            </p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  function assistant() {
+    return (
+      <Page title="AI Farming Assistant" subtitle="Ask questions about your farm">
+        <div className="assistant-layout">
+          <div className="chat-panel">
+            <div className="chat-messages">
+              {messages.length === 0 && (
+                <div className="welcome-message">
+                  <div className="avatar">🤖</div>
+                  <div>
+                    <strong>Namaste, {user?.name || "Farmer"}!</strong>
+                    <p>
+                      Ask me about crops, diseases, irrigation,
+                      fertilizer, soil or farming practices.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`message ${message.role}`}
+                >
+                  {message.text}
+                </div>
+              ))}
+            </div>
+
+            <div className="quick-questions">
+              {[
+                "What is NPK?",
+                "How often should I irrigate?",
+                "My tomato leaves are yellow",
+                "Which crop is suitable?",
+              ].map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setQuestion(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
+            <div className="chat-input">
+              <button onClick={speakQuestion} title="Voice input">
+                🎙️
+              </button>
+              <input
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") askAI();
+                }}
+                placeholder="Ask your farming question..."
+              />
+              <button onClick={askAI}>➤</button>
+            </div>
+          </div>
+
+          <div className="side-card">
+            <h3>Try asking</h3>
+            <p>🌱 How can I improve soil health?</p>
+            <p>💧 When should I irrigate?</p>
+            <p>🧪 What does NPK mean?</p>
+            <p>🦠 How do I identify plant disease?</p>
+            <p>🌾 Which crop suits my soil?</p>
+          </div>
         </div>
-      </main>
+      </Page>
+    );
+  }
+
+  function crops() {
+    return (
+      <Page
+        title="Crop Explorer"
+        subtitle={`${CROPS.length} crops and plants`}
+      >
+        <div className="toolbar">
+          <input
+            value={cropSearch}
+            onChange={(e) => setCropSearch(e.target.value)}
+            placeholder="Search crop..."
+          />
+        </div>
+
+        <div className="chips">
+          {categories.map((category) => (
+            <button
+              key={category}
+              className={cropCategory === category ? "selected" : ""}
+              onClick={() => setCropCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
+        <div className="crop-grid">
+          {filteredCrops.map((crop) => (
+            <button
+              className="crop-card"
+              key={crop[0]}
+              onClick={() =>
+                setSelectedPlant({
+                  name: crop[0],
+                  icon: crop[1],
+                })
+              }
+            >
+              <span className="crop-icon">{crop[1]}</span>
+              <strong>{crop[0]}</strong>
+              <small>{crop[2]}</small>
+              <p>{crop[3]}</p>
+              <span className="season">{crop[4]}</span>
+            </button>
+          ))}
+        </div>
+
+        {selectedPlant && (
+          <PlantDetails
+            plant={getPlantData(selectedPlant.name)}
+            onClose={() => setSelectedPlant(null)}
+          />
+        )}
+      </Page>
+    );
+  }
+
+  function diseases() {
+    return (
+      <Page
+        title="Disease & Pest Guide"
+        subtitle="Common crop health problems"
+      >
+        <input
+          className="large-search"
+          value={diseaseSearch}
+          onChange={(e) => setDiseaseSearch(e.target.value)}
+          placeholder="Search disease, pest or crop..."
+        />
+
+        <div className="disease-grid">
+          {filteredDiseases.map((disease) => (
+            <div className="disease-card" key={disease[0]}>
+              <div className="disease-top">
+                <span>🦠</span>
+                <div>
+                  <h3>{disease[0]}</h3>
+                  <small>{disease[1]}</small>
+                </div>
+              </div>
+              <span className="tag">{disease[2]}</span>
+              <p>{disease[3]}</p>
+              <button
+                onClick={() =>
+                  alert(
+                    `${disease[0]}\n\nCrop: ${disease[1]}\nType: ${disease[2]}\n\nSymptoms: ${disease[3]}\n\nFor treatment, confirm the diagnosis locally before applying pesticides.`
+                  )
+                }
+              >
+                View guidance →
+              </button>
+            </div>
+          ))}
+        </div>
+      </Page>
+    );
+  }
+
+  function doctor() {
+    return (
+      <Page
+        title="Plant Doctor"
+        subtitle="Capture or upload a clear plant photo"
+      >
+        <div className="doctor-layout">
+          <div className="upload-panel">
+            <div className="camera-box">
+              {plantPreview ? (
+                <img src={plantPreview} alt="Plant preview" />
+              ) : (
+                <>
+                  <span>📷</span>
+                  <strong>Plant photo</strong>
+                  <p>
+                    Take a clear picture of the affected
+                    leaf, stem, fruit or pest.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="upload-actions">
+              <label className="upload-button">
+                📁 Upload Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) =>
+                    handlePlantFile(e.target.files?.[0])
+                  }
+                />
+              </label>
+
+              <label className="upload-button secondary-upload">
+                📷 Camera
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) =>
+                    handlePlantFile(e.target.files?.[0])
+                  }
+                />
+              </label>
+            </div>
+
+            <select
+              value={selectedPlant?.name || ""}
+              onChange={(e) =>
+                setSelectedPlant(
+                  e.target.value
+                    ? { name: e.target.value }
+                    : null
+                )
+              }
+            >
+              <option value="">Select crop if known</option>
+              {CROPS.map((crop) => (
+                <option key={crop[0]} value={crop[0]}>
+                  {crop[0]}
+                </option>
+              ))}
+            </select>
+
+            <button className="primary-wide" onClick={analyzePlant}>
+              🔍 Analyze Plant
+            </button>
+
+            <div className="notice">
+              ⚠️ Photo screening is a prototype and should
+              not replace laboratory diagnosis or advice
+              from a qualified agriculture professional.
+            </div>
+          </div>
+
+          <div>
+            {scanResult ? (
+              <div className="result-panel">
+                <div className="result-icon">🌿</div>
+                <span className="result-label">
+                  PRELIMINARY SCREENING
+                </span>
+                <h2>{scanResult.plant}</h2>
+
+                <div className="confidence">
+                  <span>Visual confidence</span>
+                  <strong>{scanResult.confidence}%</strong>
+                </div>
+
+                <div className="result-condition">
+                  <span>Possible issue</span>
+                  <strong>{scanResult.condition}</strong>
+                </div>
+
+                <p>{scanResult.advice}</p>
+
+                <button
+                  onClick={() => setPage("diseases")}
+                  className="primary-wide"
+                >
+                  Browse Disease Guide
+                </button>
+              </div>
+            ) : (
+              <div className="empty-panel">
+                <span>🔬</span>
+                <h3>Ready to inspect</h3>
+                <p>
+                  Upload a clear photo and select the crop
+                  when possible.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  if (!loggedIn) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-decoration">🌾</div>
+
+        <div className="auth-card">
+          <div className="brand-mark">🌱</div>
+          <h1>Agri Saathi AI</h1>
+          <p>Your smart farming companion</p>
+
+          {!showRegister ? (
+            <>
+              <h2>Welcome back</h2>
+
+              <label>Mobile number</label>
+              <input
+                value={loginPhone}
+                onChange={(e) => setLoginPhone(e.target.value)}
+                placeholder="Enter mobile number"
+              />
+
+              <label>Password</label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) =>
+                  setLoginPassword(e.target.value)
+                }
+                placeholder="Enter password"
+              />
+
+              <button className="auth-submit" onClick={login}>
+                Sign in
+              </button>
+
+              <button
+                className="auth-switch"
+                onClick={() => setShowRegister(true)}
+              >
+                New farmer? Create an account
+              </button>
+            </>
+          ) : (
+            <>
+              <h2>Create farmer account</h2>
+
+              <label>Full name</label>
+              <input
+                value={registerName}
+                onChange={(e) =>
+                  setRegisterName(e.target.value)
+                }
+                placeholder="Your name"
+              />
+
+              <label>Mobile number</label>
+              <input
+                value={registerPhone}
+                onChange={(e) =>
+                  setRegisterPhone(e.target.value)
+                }
+                placeholder="Mobile number"
+              />
+
+              <label>Password</label>
+              <input
+                type="password"
+                value={registerPassword}
+                onChange={(e) =>
+                  setRegisterPassword(e.target.value)
+                }
+                placeholder="Create password"
+              />
+
+              <button
+                className="auth-submit"
+                onClick={register}
+              >
+                Create account
+              </button>
+
+              <button
+                className="auth-switch"
+                onClick={() => setShowRegister(false)}
+              >
+                Already have an account? Sign in
+              </button>
+            </>
+          )}
+
+          <small>
+            Demo authentication stores accounts in this
+            browser only.
+          </small>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="app">
-      <header className="header">
-        <div className="brand">
-          <div className="logo small">🌱</div>
-
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand" onClick={() => setPage("home")}>
+          <span>🌱</span>
           <div>
-            <h1>{t.title}</h1>
-            <p>{t.subtitle}</p>
+            <strong>Agri Saathi AI</strong>
+            <small>Smart farming platform</small>
           </div>
         </div>
 
-        <div className="language-selection compact">
-          <button
-            className={language === "en" ? "language active" : "language"}
-            onClick={() => changeLanguage("en")}
+        <div className="top-actions">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
           >
-            EN
-          </button>
+            <option>English</option>
+            <option>Kannada</option>
+          </select>
 
-          <button
-            className={language === "kn" ? "language active" : "language"}
-            onClick={() => changeLanguage("kn")}
-          >
-            ಕನ್ನಡ
-          </button>
+          <span className="user-name">
+            👨‍🌾 {user?.name}
+          </span>
+
+          <button onClick={logout}>Logout</button>
         </div>
       </header>
 
-      {error && (
-        <div className="error-message">
-          <span>⚠️</span>
-          {error}
-          <button onClick={() => setError("")}>×</button>
-        </div>
-      )}
-
-      <section className="card">
-        <div className="section-title">
-          <div>
-            <h2>{t.cropSelection}</h2>
-            <p>Choose the crop you want to work with.</p>
-          </div>
-        </div>
-
-        <div className="crop-grid">
-          {crops.map((crop) => (
-            <button
-              key={crop.id}
-              className={
-                selectedCrop?.id === crop.id
-                  ? "crop-card selected"
-                  : "crop-card"
-              }
-              onClick={() => selectCrop(crop)}
-            >
-              <span className="crop-icon">
-                {crop.id === "rice"
-                  ? "🌾"
-                  : crop.id === "tomato"
-                  ? "🍅"
-                  : "🌿"}
-              </span>
-
-              <strong>
-                {language === "kn" ? crop.knName : crop.name}
-              </strong>
-
-              <span>{crop.summary}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <div className="tabs">
-        <button
-          className={activeTab === "guide" ? "tab active" : "tab"}
-          onClick={() => setActiveTab("guide")}
-        >
-          📖 {t.guide}
-        </button>
-
-        <button
-          className={activeTab === "health" ? "tab active" : "tab"}
-          onClick={() => setActiveTab("health")}
-        >
-          🩺 {t.health}
-        </button>
-
-        <button
-          className={activeTab === "chat" ? "tab active" : "tab"}
-          onClick={() => setActiveTab("chat")}
-        >
-          💬 {t.chat}
-        </button>
+      <div className="mobile-nav">
+        <button onClick={() => setPage("home")}>Home</button>
+        <button onClick={() => setPage("assistant")}>AI</button>
+        <button onClick={() => setPage("doctor")}>Doctor</button>
+        <button onClick={() => setPage("crops")}>Crops</button>
+        <button onClick={() => setPage("diseases")}>Diseases</button>
       </div>
 
-      {activeTab === "guide" && selectedCrop && (
-        <section className="card">
-          <div className="section-title">
-            <div>
-              <span className="eyebrow">CROP GUIDE</span>
-
-              <h2>
-                {language === "kn"
-                  ? selectedCrop.knName
-                  : selectedCrop.name}
-              </h2>
-            </div>
-
-            <span className="badge">✓ Ready</span>
-          </div>
-
-          <div className="guide-grid">
-            {Object.entries(selectedCrop.guide).map(([key, value]) => (
-              <div className="guide-item" key={key}>
-                <div className="guide-icon">
-                  {key === "soil"
-                    ? "🌱"
-                    : key === "water"
-                    ? "💧"
-                    : key === "fertilizer"
-                    ? "🧪"
-                    : key === "pests"
-                    ? "🐛"
-                    : "🌾"}
-                </div>
-
-                <div>
-                  <h3>
-                    {key.charAt(0).toUpperCase() +
-                      key.slice(1)}
-                  </h3>
-
-                  <p>{value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {activeTab === "health" && (
-        <section className="card">
-          <div className="section-title">
-            <div>
-              <span className="eyebrow">AI SCREENING</span>
-              <h2>{t.healthCheck}</h2>
-              <p>
-                Upload a clear photo of the crop leaf or affected area.
-              </p>
-            </div>
-          </div>
-
-          <div className="upload-area">
-            {preview ? (
-              <div className="image-preview">
-                <img src={preview} alt="Crop preview" />
-
-                <button
-                  className="remove-image"
-                  onClick={() => {
-                    setImage(null);
-                    setPreview("");
-                    setScreeningResult(null);
-                    setConditionDetails(null);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ) : (
-              <label className="upload-box">
-                <span className="upload-icon">📷</span>
-
-                <strong>{t.upload}</strong>
-
-                <span>
-                  JPG, JPEG or PNG
-                </span>
-
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg"
-                  onChange={handleImageChange}
-                />
-              </label>
-            )}
-          </div>
-
-          {image && (
-            <button
-              className="primary-button analyze-button"
-              onClick={analyzeImage}
-              disabled={loading}
-            >
-              {loading ? "⏳ " + t.loading : "🔍 " + t.analyze}
-            </button>
-          )}
-
-          {!screeningResult && !loading && (
-            <div className="empty-state">
-              <span>🌿</span>
-              <p>{t.noResult}</p>
-            </div>
-          )}
-
-          {screeningResult && (
-            <div className="screening-result">
-              <div className="result-header">
-                <div>
-                  <span className="eyebrow">SCREENING RESULT</span>
-                  <h3>{screeningResult.possible_condition_name}</h3>
-                </div>
-
-                <div className="confidence">
-                  {Math.round(screeningResult.confidence * 100)}%
-                  <span>{t.confidence}</span>
-                </div>
-              </div>
-
-              <div className="progress">
-                <div
-                  style={{
-                    width: `${screeningResult.confidence * 100}%`,
-                  }}
-                />
-              </div>
-
-              <p className="result-text">
-                {screeningResult.disclaimer}
-              </p>
-
-              <div className="notice">
-                ℹ️ {screeningResult.escalation_note}
-              </div>
-            </div>
-          )}
-
-          {conditionDetails && (
-            <div className="condition-card">
-              <h3>{conditionDetails.name}</h3>
-
-              <p>
-                <strong>Type:</strong>{" "}
-                {conditionDetails.type}
-              </p>
-
-              <div className="details-grid">
-                <div>
-                  <h4>🩺 {t.symptoms}</h4>
-                  <p>{conditionDetails.symptoms}</p>
-                </div>
-
-                <div>
-                  <h4>🌦️ {t.conditions}</h4>
-                  <p>
-                    {conditionDetails.favorable_conditions}
-                  </p>
-                </div>
-
-                <div>
-                  <h4>🛡️ {t.prevention}</h4>
-                  <p>{conditionDetails.prevention}</p>
-                </div>
-
-                <div>
-                  <h4>🔧 {t.management}</h4>
-                  <p>{conditionDetails.management}</p>
-                </div>
-
-                <div className="full">
-                  <h4>👨‍🌾 {t.expert}</h4>
-                  <p>{conditionDetails.expert_help_when}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="disclaimer">
-            ⚠️ {t.disclaimer}
-          </div>
-        </section>
-      )}
-
-      {activeTab === "chat" && (
-        <section className="card chat-card">
-          <div className="section-title">
-            <div>
-              <span className="eyebrow">AI ASSISTANT</span>
-              <h2>{t.assistant}</h2>
-              <p>
-                Ask questions about{" "}
-                <strong>
-                  {selectedCrop?.name || "your crop"}
-                </strong>
-                .
-              </p>
-            </div>
-          </div>
-
-          <div className="chat-box">
-            {messages.length === 0 && (
-              <div className="chat-empty">
-                <span>🤖</span>
-                <h3>How can I help?</h3>
-                <p>
-                  Ask about watering, pests, soil, fertilizer,
-                  diseases, or crop management.
-                </p>
-              </div>
-            )}
-
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={
-                  message.role === "user"
-                    ? "chat-message user"
-                    : "chat-message assistant"
-                }
-              >
-                <div className="message-avatar">
-                  {message.role === "user" ? "👨‍🌾" : "🤖"}
-                </div>
-
-                <div className="message-content">
-                  <span>
-                    {message.role === "user"
-                      ? "You"
-                      : "Assistant"}
-                  </span>
-
-                  <p>{message.text}</p>
-                </div>
-              </div>
-            ))}
-
-            {loading && (
-              <div className="chat-message assistant">
-                <div className="message-avatar">🤖</div>
-
-                <div className="typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <form
-            className="chat-form"
-            onSubmit={askQuestion}
-          >
-            <input
-              value={question}
-              onChange={(event) =>
-                setQuestion(event.target.value)
-              }
-              placeholder={t.placeholder}
-              disabled={loading}
-            />
-
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={loading || !question.trim()}
-            >
-              {t.send} →
-            </button>
-          </form>
-        </section>
-      )}
+      <main className="main-container">
+        {page === "home" && home()}
+        {page === "assistant" && assistant()}
+        {page === "crops" && crops()}
+        {page === "diseases" && diseases()}
+        {page === "doctor" && doctor()}
+      </main>
 
       <footer>
-        <p>🌱 Smart Crop Assistant</p>
-        <p>For educational and general agricultural guidance.</p>
+        <strong>🌱 Agri Saathi AI</strong>
+        <span>Smart agriculture technology for farmers</span>
       </footer>
-    </main>
+    </div>
+  );
+}
+
+function Page({ title, subtitle, children }) {
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <span>AGRI SAATHI</span>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+      </div>
+      {children}
+    </>
+  );
+}
+
+function Feature({ icon, title, text, onClick }) {
+  return (
+    <button className="feature" onClick={onClick}>
+      <span>{icon}</span>
+      <div>
+        <h3>{title}</h3>
+        <p>{text}</p>
+      </div>
+      <b>→</b>
+    </button>
+  );
+}
+
+function PlantDetails({ plant, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="plant-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className="close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="plant-title">
+          <span>{plant.icon}</span>
+          <div>
+            <small>PLANT PROFILE</small>
+            <h2>{plant.name}</h2>
+          </div>
+        </div>
+
+        <div className="detail-grid">
+          <Info label="Type" value={plant.type} />
+          <Info label="Soil" value={plant.soil} />
+          <Info label="Water" value={plant.water} />
+          <Info label="Temperature" value={plant.temperature} />
+          <Info label="Common problems" value={plant.problems} />
+          <Info label="Harvest" value={plant.harvest} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div className="info">
+      <small>{label}</small>
+      <p>{value}</p>
+    </div>
   );
 }
 
