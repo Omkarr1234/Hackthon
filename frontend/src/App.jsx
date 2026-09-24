@@ -3,7 +3,7 @@ import "./App.css";
 
 /*
   ================================================================
-  AGRI SAATHI AI — FARMSENSE PS-01
+  AGRI SAATHI AI — SMART FARM ASSISTANT
   ================================================================
 
   THREE-FILE VERSION
@@ -11,7 +11,7 @@ import "./App.css";
   Files: App.jsx + App.css + main.jsx.
   No data.js is required; the agriculture database stays in App.jsx.
 
-  HACKATHON PROBLEM FOCUS: PS-01 FARM SENSE
+  SMART FARM DECISION SUPPORT
   ---------------------------------------------------------------
   "Given today's soil, weather and crop conditions, what should
    this farmer do next, when should they do it, and why?"
@@ -1212,7 +1212,7 @@ async function askRealAI(question, farm, decision, language) {
       decision,
       cropDatabase: PLANTS,
       diseaseDatabase: DISEASES,
-      system: "You are FarmSense, an agriculture decision-support assistant. Give practical, cautious, step-by-step guidance. For PS-01, prioritize what the farmer should do next, when, and why, using the provided field and weather context. Never claim a photo is a definitive diagnosis. Do not invent sensor readings or confidence scores.",
+      system: "You are FarmSense, an agriculture decision-support assistant. Give practical, cautious, step-by-step guidance. Prioritize what the farmer should do next, when, and why, using the provided field and weather context. Never claim a photo is a definitive diagnosis. Do not invent sensor readings or confidence scores.",
     }),
   });
 
@@ -1463,7 +1463,7 @@ function Header({ page, language, setLanguage, go, back, text, user, onLogout })
         <span className="brand-mark">🌱</span>
         <span className="brand-copy">
           <b>Agri Saathi AI</b>
-          <small>FarmSense • PS-01</small>
+          <small>Smart Farm Assistant</small>
         </span>
       </button>
 
@@ -1637,7 +1637,7 @@ function AuthPage({ language, setLanguage, onLogin }) {
         <div className="auth-logo">🌱</div>
         <div>
           <b>Agri Saathi AI</b>
-          <small>FarmSense • PS-01</small>
+          <small>Smart Farm Assistant</small>
         </div>
 
         <button
@@ -1651,13 +1651,11 @@ function AuthPage({ language, setLanguage, onLogin }) {
       <div className="auth-layout">
         <div className="auth-story">
           <div className="auth-eyebrow">
-            INNOVATORS CONCLAVE 2026 • AGRITECH
+            AGRI SAATHI AI • SMART FARM ASSISTANT
           </div>
 
           <h1>
-            Build the decision,
-            <br />
-            <em>not the dashboard.</em>
+            Ask. Understand. Farm Better.<br /><em>Always with Farmer 🧑🏻‍🌾</em>
           </h1>
 
           <p>
@@ -1829,7 +1827,7 @@ function AuthPage({ language, setLanguage, onLogin }) {
       </div>
 
       <div className="auth-bottom">
-        <span>🌱 Farmer-first • Explainable decisions • PS-01 FarmSense</span>
+        <span>🌱 Farmer-first • Explainable decisions • Smart farm guidance</span>
         <span>2026</span>
       </div>
     </div>
@@ -1846,16 +1844,14 @@ function Dashboard({ farm, decision, text, go, saveDecision, history }) {
     <main className="page-shell">
       <section className="hero-card">
         <div className="hero-left">
-          <div className="eyebrow">INNOVATORS CONCLAVE 2026 • AGRITECH • PS-01</div>
+          <div className="eyebrow">AGRI SAATHI AI • SMART FARM ASSISTANT</div>
           <h1>
-            Build the decision,
-            <br />
-            <em>not the dashboard.</em>
+            Ask. Understand. Farm Better.<br /><em>Always with Farmer 🧑🏻‍🌾</em>
           </h1>
           <p>
-            FarmSense combines farm observations, soil moisture, weather,
-            rainfall, irrigation access and crop stage to answer one practical
-            question: <strong>{text.farmerQuestion}</strong>
+            Agri Saathi AI combines farm observations, soil moisture, weather,
+            rainfall, irrigation access and crop stage to provide clear,
+            practical guidance for farmers.
           </p>
 
           <div className="button-row">
@@ -2269,7 +2265,7 @@ function FarmProfile({ farm, decision, text, updateFarm, go }) {
       </section>
 
       <section className="small-note-card">
-        <b>How this page supports PS-01</b>
+        <b>How Agri Saathi AI helps farmers</b>
         <p>
           The farmer enters field conditions and weather information. FarmSense then
           recalculates need, risk and the next action immediately. This makes the
@@ -2571,7 +2567,7 @@ function Assistant({ language, farm, decision, text }) {
 
       <section className="assistant-architecture">
         <div>
-          <div className="eyebrow">WHY THIS FITS PS-01</div>
+          <div className="eyebrow">HOW AGRI SAATHI AI WORKS</div>
           <h3>Not just “ask an AI”.</h3>
           <p>
             The assistant receives the farm context and the decision-engine result.
@@ -3026,11 +3022,12 @@ function Footer() {
     <footer className="footer">
       <div>
         <b>🌱 Agri Saathi AI</b>
-        <span>FarmSense PS-01 decision-support prototype</span>
+        <span>Agri Saathi AI • Smart farm decision support</span>
       </div>
       <span>Farm data → Weather → Assessment → Risk → Decision</span>
     </footer>
   );
 }
+
 
 
