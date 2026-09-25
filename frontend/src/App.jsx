@@ -1878,6 +1878,15 @@ function Dashboard({ farm, decision, text, go, saveDecision, history }) {
         <DecisionHero decision={decision} text={text} saveDecision={saveDecision} />
       </section>
 
+      <section className="white-card" style={{ marginTop: 18, border: "1px solid #dce9df", background: "linear-gradient(135deg,#f8fcf9,#ffffff)" }}>
+        <div className="eyebrow">PS-01 • FARMSENSE — SMART FARM DECISION SUPPORT</div>
+        <h2 style={{ margin: "8px 0 8px" }}>What should this farmer do next?
+        </h2>
+        <p style={{ margin: 0, lineHeight: 1.7, color: "#5c6b61" }}>
+          Given today's soil, weather and crop conditions, FarmSense identifies the current need or risk, recommends the next practical farm action, tells the farmer when to act, and explains why the recommendation was made.
+        </p>
+      </section>
+
       <FarmSummary farm={farm} decision={decision} onEdit={() => go("farm")} text={text} />
 
       <SectionTitle eyebrow={text.decisionLayer} title={text.farmerQuestion} />
@@ -2119,66 +2128,115 @@ function HistoryTable({ history }) {
    ================================================================ */
 
 function FarmProfile({ farm, decision, text, updateFarm, go }) {
+  const [fetchingWeather, setFetchingWeather] = useState(false);
+  const [weatherError, setWeatherError] = useState("");
+  const [liveLocation, setLiveLocation] = useState(null);
+  const [weatherSource, setWeatherSource] = useState("Manual / saved input");
+
+  async function fetchLiveWeather() {
+    setFetchingWeather(true);
+    setWeatherError("");
+
+    try {
+      if (!navigator.geolocation) {
+        throw new Error("Geolocation is not supported by this browser.");
+      }
+
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 300000,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      setLiveLocation({ latitude, longitude });
+
+      const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+        `&current=temperature_2m,relative_humidity_2m,precipitation` +
+        `&daily=precipitation_sum,precipitation_probability_max` +
+        `&past_days=1&forecast_days=4&timezone=auto`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Weather service unavailable.");
+
+      const data = await response.json();
+      const current = data.current || {};
+      const daily = data.daily || {};
+
+      const past24 = Number(daily.precipitation_sum?.[0] || 0);
+      const next24 = Number(daily.precipitation_sum?.[1] || 0);
+      const next3 = (daily.precipitation_sum || [])
+        .slice(1, 4)
+        .reduce((sum, value) => sum + Number(value || 0), 0);
+
+      updateFarm("temperature", Math.round(Number(current.temperature_2m ?? farm.temperature)));
+      updateFarm("humidity", Math.round(Number(current.relative_humidity_2m ?? farm.humidity)));
+      updateFarm("rainPast24", Math.round(past24 * 10) / 10);
+      updateFarm("rainNext24", Math.round(next24 * 10) / 10);
+      updateFarm("rainNext3Days", Math.round(next3 * 10) / 10);
+
+      setWeatherSource("LIVE • Device GPS + Open-Meteo");
+    } catch (error) {
+      let message = "Could not fetch live weather. Allow location permission and check your internet connection.";
+
+      if (error?.code === 1) {
+        message = "Location permission was denied. Allow location access in the browser, then try again.";
+      } else if (error?.code === 2) {
+        message = "Your current location could not be detected. You can enter weather values manually.";
+      } else if (error?.code === 3) {
+        message = "Location request timed out. Try Fetch Live Weather again.";
+      }
+
+      setWeatherError(message);
+      setWeatherSource("Manual fallback");
+    } finally {
+      setFetchingWeather(false);
+    }
+  }
+
   return (
     <main className="page-shell narrow-shell">
-      <SectionTitle eyebrow={text.decisionLayer} title={text.profile} />
+      <SectionTitle
+        eyebrow="PS-01 • DECISION INPUTS"
+        title="Farm & Crop Profile"
+      />
 
       <section className="form-card">
+        <div className="eyebrow">1 • FARM & CROP PROFILE</div>
+        <p style={{ color: "#65736a", lineHeight: 1.6, marginTop: 6 }}>
+          Enter the field context that FarmSense uses before producing a recommendation.
+        </p>
+
         <div className="form-grid">
           <Field label={text.farmer}>
-            <input
-              value={farm.farmer}
-              onChange={(e) => updateFarm("farmer", e.target.value)}
-              placeholder="Farmer name"
-            />
+            <input value={farm.farmer} onChange={(e) => updateFarm("farmer", e.target.value)} placeholder="Farmer name" />
           </Field>
 
           <Field label={text.location}>
-            <input
-              value={farm.location}
-              onChange={(e) => updateFarm("location", e.target.value)}
-              placeholder="Village / district / state"
-            />
+            <input value={farm.location} onChange={(e) => updateFarm("location", e.target.value)} placeholder="Village / district / state" />
           </Field>
 
           <Field label={text.area}>
-            <input
-              type="number"
-              min="0"
-              value={farm.area}
-              onChange={(e) => updateFarm("area", e.target.value)}
-            />
+            <input type="number" min="0" value={farm.area} onChange={(e) => updateFarm("area", e.target.value)} />
           </Field>
 
           <Field label={text.crop}>
-            <select
-              value={farm.crop}
-              onChange={(e) => updateFarm("crop", e.target.value)}
-            >
-              {PLANTS.map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.icon} {item.name}
-                </option>
-              ))}
+            <select value={farm.crop} onChange={(e) => updateFarm("crop", e.target.value)}>
+              {PLANTS.map((item) => <option value={item.id} key={item.id}>{item.icon} {item.name}</option>)}
             </select>
           </Field>
 
           <Field label={text.stage}>
-            <select
-              value={farm.stage}
-              onChange={(e) => updateFarm("stage", e.target.value)}
-            >
-              {GROWTH_STAGES.map((stage) => (
-                <option value={stage} key={stage}>{stage}</option>
-              ))}
+            <select value={farm.stage} onChange={(e) => updateFarm("stage", e.target.value)}>
+              {GROWTH_STAGES.map((stage) => <option value={stage} key={stage}>{stage}</option>)}
             </select>
           </Field>
 
           <Field label={text.soil}>
-            <select
-              value={farm.soilType}
-              onChange={(e) => updateFarm("soilType", e.target.value)}
-            >
+            <select value={farm.soilType} onChange={(e) => updateFarm("soilType", e.target.value)}>
               <option>Loamy</option>
               <option>Clay</option>
               <option>Sandy loam</option>
@@ -2189,91 +2247,120 @@ function FarmProfile({ farm, decision, text, updateFarm, go }) {
           </Field>
 
           <Field label={`${text.moisture} (%)`} hint="0–100">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={farm.soilMoisture}
-              onChange={(e) => updateFarm("soilMoisture", e.target.value)}
-            />
+            <input type="number" min="0" max="100" value={farm.soilMoisture} onChange={(e) => updateFarm("soilMoisture", e.target.value)} />
           </Field>
 
           <Field label={text.irrigation}>
-            <select
-              value={farm.irrigation}
-              onChange={(e) => updateFarm("irrigation", e.target.value)}
-            >
+            <select value={farm.irrigation} onChange={(e) => updateFarm("irrigation", e.target.value)}>
               <option>Available</option>
               <option>Limited</option>
               <option>Unavailable</option>
             </select>
           </Field>
+        </div>
+      </section>
 
-          <Field label={`${text.temperature} (°C)`} hint="Weather input">
-            <input
-              type="number"
-              value={farm.temperature}
-              onChange={(e) => updateFarm("temperature", e.target.value)}
-            />
+      <section className="white-card" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <div className="eyebrow">2 • FIELD-CONDITION MONITORING</div>
+            <h2 style={{ margin: "7px 0 4px" }}>🧪 Soil / Field Data</h2>
+            <p style={{ margin: 0, color: "#65736a", lineHeight: 1.55 }}>
+              Current prototype input: farmer-entered soil moisture. A calibrated field sensor can replace this input in a real deployment.
+            </p>
+          </div>
+          <span style={{ padding: "7px 11px", borderRadius: 999, background: "#edf7ef", color: "#176b3a", fontWeight: 800, fontSize: 12 }}>
+            SOURCE 1 • FIELD
+          </span>
+        </div>
+
+        <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "minmax(0,1fr) 120px", gap: 16, alignItems: "center" }}>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={farm.soilMoisture}
+            onChange={(e) => updateFarm("soilMoisture", e.target.value)}
+          />
+          <div style={{ textAlign: "center", background: "#f4f8f5", borderRadius: 14, padding: 12 }}>
+            <small style={{ color: "#65736a" }}>Soil moisture</small>
+            <strong style={{ display: "block", fontSize: 25, color: "#176b3a" }}>{farm.soilMoisture}%</strong>
+          </div>
+        </div>
+      </section>
+
+      <SoilMoisturePhoto farm={farm} text={text} />
+
+      <section className="white-card" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <div className="eyebrow">3 • LIVE WEATHER + LOCATION</div>
+            <h2 style={{ margin: "7px 0 4px" }}>📍 Fetch Live Field Weather</h2>
+            <p style={{ margin: 0, color: "#65736a", lineHeight: 1.55 }}>
+              Uses your browser's location permission and Open-Meteo. No weather API key is required.
+            </p>
+          </div>
+          <button className="primary-button" onClick={fetchLiveWeather} disabled={fetchingWeather}>
+            {fetchingWeather ? "⏳ Fetching..." : "📍 Fetch Live Weather"}
+          </button>
+        </div>
+
+        {weatherError && (
+          <div className="auth-error" style={{ marginTop: 14 }}>{weatherError}</div>
+        )}
+
+        <div style={{ marginTop: 16, padding: 12, borderRadius: 12, background: "#f1f8f3", color: "#315840", fontSize: 12 }}>
+          <b>{weatherSource}</b>
+          {liveLocation && (
+            <span style={{ display: "block", marginTop: 4 }}>
+              GPS: {liveLocation.latitude.toFixed(5)}, {liveLocation.longitude.toFixed(5)}
+            </span>
+          )}
+        </div>
+
+        <div className="metric-grid" style={{ marginTop: 16 }}>
+          <MetricCard icon="🌡️" label={text.temperature} value={`${farm.temperature}°C`} source="Current weather" />
+          <MetricCard icon="💧" label={text.humidity} value={`${farm.humidity}%`} source="Current humidity" />
+          <MetricCard icon="🌧️" label={text.rainPast} value={`${farm.rainPast24} mm`} source="Weather data" />
+          <MetricCard icon="☔" label={text.rainNext} value={`${farm.rainNext24} mm`} source="Forecast" />
+        </div>
+
+        <div className="form-grid" style={{ marginTop: 16 }}>
+          <Field label={`${text.temperature} (°C)`} hint="Manual fallback">
+            <input type="number" value={farm.temperature} onChange={(e) => updateFarm("temperature", e.target.value)} />
           </Field>
-
-          <Field label={`${text.humidity} (%)`} hint="Weather input">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={farm.humidity}
-              onChange={(e) => updateFarm("humidity", e.target.value)}
-            />
+          <Field label={`${text.humidity} (%)`} hint="Manual fallback">
+            <input type="number" min="0" max="100" value={farm.humidity} onChange={(e) => updateFarm("humidity", e.target.value)} />
           </Field>
-
-          <Field label={`${text.rainPast} (mm)`} hint="Weather input">
-            <input
-              type="number"
-              min="0"
-              value={farm.rainPast24}
-              onChange={(e) => updateFarm("rainPast24", e.target.value)}
-            />
+          <Field label={`${text.rainPast} (mm)`}>
+            <input type="number" min="0" value={farm.rainPast24} onChange={(e) => updateFarm("rainPast24", e.target.value)} />
           </Field>
-
-          <Field label={`${text.rainNext} (mm)`} hint="Weather input">
-            <input
-              type="number"
-              min="0"
-              value={farm.rainNext24}
-              onChange={(e) => updateFarm("rainNext24", e.target.value)}
-            />
+          <Field label={`${text.rainNext} (mm)`}>
+            <input type="number" min="0" value={farm.rainNext24} onChange={(e) => updateFarm("rainNext24", e.target.value)} />
           </Field>
-
-          <Field label={`${text.rainThree} (mm)`} hint="Weather input">
-            <input
-              type="number"
-              min="0"
-              value={farm.rainNext3Days}
-              onChange={(e) => updateFarm("rainNext3Days", e.target.value)}
-            />
+          <Field label={`${text.rainThree} (mm)`}>
+            <input type="number" min="0" value={farm.rainNext3Days} onChange={(e) => updateFarm("rainNext3Days", e.target.value)} />
           </Field>
         </div>
       </section>
 
-      <section className="live-decision-card">
+      <section className="green-callout" style={{ marginTop: 16 }}>
         <div>
-          <div className="eyebrow">LIVE DECISION</div>
+          <div className="eyebrow light">4 • INTELLIGENT RECOMMENDATION</div>
           <h2>{decision.action}</h2>
-          <p>{decision.reasons.join("; ")}</p>
+          <p><b>When:</b> {decision.when}</p>
+          <p><b>Why:</b> {decision.reasons.slice(0, 5).join("; ")}.</p>
         </div>
-        <div className="live-side">
+        <div style={{ minWidth: 110 }}>
           <span className={`risk-pill ${decision.riskLevel.toLowerCase()}`}>{decision.riskLevel}</span>
-          <b>Risk {decision.risk}/100</b>
+          <b style={{ display: "block", marginTop: 8 }}>Risk {decision.risk}/100</b>
         </div>
       </section>
 
-      <section className="small-note-card">
-        <b>How FarmSense makes decisions</b>
+      <section className="small-note-card" style={{ marginTop: 14 }}>
+        <b>Why this matches PS-01</b>
         <p>
-          The farmer enters field conditions and weather information. FarmSense then
-          recalculates need, risk and the next action immediately. This makes the
-          prototype a decision tool rather than a dashboard that only displays data.
+          FarmSense combines farm/field observations, weather inputs and crop stage, identifies the current need or risk, and converts the inputs into a practical next action with timing and reasoning. The weather values can be live or manually entered when connectivity/location permission is unavailable.
         </p>
       </section>
 
@@ -2284,6 +2371,234 @@ function FarmProfile({ farm, decision, text, updateFarm, go }) {
   );
 }
 
+
+/* ================================================================
+   SOIL MOISTURE PHOTO CAPTURE
+   ------------------------------------------------
+   Lets the farmer capture / upload a close soil photo.
+   The image is not turned into a fake moisture percentage.
+   The "Analyze with AI" button is a ready API hook for:
+        POST /api/soil/analyze
+   When the API is connected later, it can return a qualitative
+   moisture assessment plus evidence/explanation.
+   ================================================================ */
+
+function SoilMoisturePhoto({ farm, text }) {
+  const [photo, setPhoto] = useState("");
+  const [file, setFile] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const inputRef = useRef(null);
+
+  function handlePhoto(selectedFile) {
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+    setAnalysis(null);
+    setMessage("");
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPhoto(String(event.target?.result || ""));
+    };
+    reader.readAsDataURL(selectedFile);
+  }
+
+  function removePhoto() {
+    setPhoto("");
+    setFile(null);
+    setAnalysis(null);
+    setMessage("");
+
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }
+
+  async function analyzeSoilPhoto() {
+    if (!file) return;
+
+    setBusy(true);
+    setMessage("");
+    setAnalysis(null);
+
+    try {
+      const body = new FormData();
+      body.append("image", file);
+      body.append("crop", cropById(farm.crop).name);
+      body.append("soilType", farm.soilType);
+      body.append("currentMoisture", String(farm.soilMoisture));
+
+      const response = await fetch("/api/soil/analyze", {
+        method: "POST",
+        body,
+      });
+
+      if (!response.ok) {
+        throw new Error("Soil vision backend unavailable");
+      }
+
+      const data = await response.json();
+
+      setAnalysis({
+        connected: true,
+        moistureBand:
+          data.moistureBand ||
+          data.moisture ||
+          "Vision result received",
+        explanation:
+          data.explanation ||
+          data.reasoning ||
+          "The soil vision service returned an analysis.",
+        recommendation:
+          data.recommendation ||
+          data.nextStep ||
+          "Use the result together with the measured soil-moisture reading.",
+      });
+    } catch (error) {
+      setMessage(
+        "The soil photo is captured successfully. Quantitative moisture should still come from a sensor or manual reading until /api/soil/analyze is connected."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="soil-photo-panel" style={{ marginTop: 16 }}>
+      <div className="soil-photo-heading">
+        <div>
+          <div className="eyebrow">2B • VISUAL FIELD EVIDENCE</div>
+          <h2>🪨 Soil Moisture Photo Check</h2>
+          <p>
+            Capture a clear close-up of the soil surface. This adds visual evidence
+            to the field-condition assessment.
+          </p>
+        </div>
+        <span className="soil-source-badge">FIELD EVIDENCE</span>
+      </div>
+
+      <div className="soil-photo-grid">
+        <div
+          className="soil-camera-box"
+          onClick={() => inputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              inputRef.current?.click();
+            }
+          }}
+        >
+          {photo ? (
+            <img src={photo} alt="Captured soil" />
+          ) : (
+            <div>
+              <div className="soil-camera-icon">📷</div>
+              <strong>Tap to capture soil</strong>
+              <span>
+                Take a close photo of the actual soil surface
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="soil-photo-details">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(event) => handlePhoto(event.target.files?.[0])}
+          />
+
+          <div className="soil-photo-buttons">
+            <button
+              type="button"
+              className="primary-button small"
+              onClick={() => inputRef.current?.click()}
+            >
+              📸 Capture / Choose Photo
+            </button>
+
+            {photo && (
+              <button
+                type="button"
+                className="secondary-button small"
+                onClick={removePhoto}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+
+          {file && (
+            <div className="soil-file-name">
+              ✓ {file.name}
+            </div>
+          )}
+
+          <div className="soil-moisture-readout">
+            <div>
+              <small>Moisture value currently used by FarmSense</small>
+              <strong>{farm.soilMoisture}%</strong>
+            </div>
+            <span>Manual / sensor reading</span>
+          </div>
+
+          <div className="soil-photo-note">
+            <b>What the photo can add:</b>
+            <p>
+              Surface appearance can provide supporting field evidence, but this
+              prototype does not convert pixels into a fake moisture percentage.
+              The measured value above remains the quantitative input for the
+              decision engine.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-button small full"
+            disabled={!file || busy}
+            onClick={analyzeSoilPhoto}
+          >
+            {busy
+              ? "⏳ Analyzing..."
+              : "🤖 Analyze Soil Photo with AI"}
+          </button>
+
+          {message && (
+            <div className="soil-photo-message">
+              {message}
+            </div>
+          )}
+
+          {analysis && (
+            <div className="soil-analysis-result">
+              <span className="result-status connected">
+                ● Soil vision connected
+              </span>
+
+              <h3>{analysis.moistureBand}</h3>
+
+              <div className="result-section">
+                <b>Evidence</b>
+                <p>{analysis.explanation}</p>
+              </div>
+
+              <div className="result-section">
+                <b>Next step</b>
+                <p>{analysis.recommendation}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function Field({ label, hint, children }) {
   return (
