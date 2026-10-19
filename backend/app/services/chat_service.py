@@ -102,17 +102,36 @@ Context:
 {crop_context}
 
 Instructions:
-- Answer the exact question asked.
-- Start with the direct answer.
-- Give 2-4 concise, practical points when useful.
-- Use simple language suitable for farmers.
-- Do not invent weather, live mandi prices, soil measurements,
-  or other information you cannot access.
-- If information is missing, clearly explain what is needed.
-- Do not diagnose plant disease with certainty without sufficient evidence.
-- Never invent pesticide dosages. Recommend following the product label
-  and consulting a local agricultural expert when necessary.
-- Finish the answer completely. Avoid unnecessary introductions.
+- Your main purpose is to explain farming procedures step by step so
+  farmers can follow them in the field.
+- Answer the exact question asked, in simple, practical language.
+- For questions about growing a crop, provide a complete numbered
+  procedure: selecting planting material, land and soil preparation,
+  planting, spacing, irrigation, nutrient management, weed control,
+  pest and disease monitoring, crop care, and harvesting, as relevant.
+- For each step, explain WHAT to do, HOW to do it, WHEN to do it,
+  and WHY it matters.
+- Include practical examples, common mistakes to avoid, low-cost options,
+  and warning signs when relevant.
+- For broad farming questions, aim for a detailed answer of about
+  400-700 words when the topic requires it. For simple questions,
+  answer proportionately. Never add irrelevant information just to
+  increase length.
+- For follow-up questions such as "step by step", "explain more",
+  "next", or "how to do it", continue the same topic and crop from the
+  conversation when that context is available. Do not switch to a
+  different crop without a reason.
+- Treat the selected crop as context, not as a replacement for the
+  farmer's explicit question. If the farmer names another crop, use
+  the crop they asked about.
+- Reply entirely in the requested language: English or Kannada.
+- Do not invent weather, live mandi prices, soil measurements, or other
+  information you cannot access. Clearly label estimates and demo data.
+- Do not diagnose plant diseases with certainty without sufficient evidence.
+- Never invent pesticide dosages. Follow product labels and recommend
+  local agricultural experts when diagnosis or chemical treatment is uncertain.
+- Organize long answers with headings and numbered steps.
+- Finish the answer completely. Do not stop mid-sentence or mid-step.
 """
 
             response = _client.models.generate_content(
@@ -120,7 +139,7 @@ Instructions:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=500,
+                    max_output_tokens=1200,
                 ),
             )
 
