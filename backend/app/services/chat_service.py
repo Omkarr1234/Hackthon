@@ -20,7 +20,7 @@ MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 _client = (
     genai.Client(
         api_key=API_KEY,
-        http_options=types.HttpOptions(timeout=20000),
+        http_options=types.HttpOptions(timeout=60000),
     )
     if API_KEY
     else None
@@ -120,7 +120,7 @@ Instructions:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=300,
+                    max_output_tokens=200,
                 ),
             )
 
