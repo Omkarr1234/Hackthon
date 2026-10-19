@@ -71,8 +71,8 @@ import "./App.css";
    1. OPTIONAL AI ENDPOINTS
    ================================================================ */
 
-const AI_API_URL = "";
-const VISION_API_URL = "";
+const AI_API_URL = (import.meta.env.VITE_API_URL || "https://agrisathi-ai-backend-ajed.onrender.com").replace(/\/$/, "");
+const VISION_API_URL = (import.meta.env.VITE_API_URL || "https://agrisathi-ai-backend-ajed.onrender.com").replace(/\/$/, "");
 
 
 /* ================================================================
