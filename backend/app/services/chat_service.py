@@ -120,7 +120,7 @@ Instructions:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=200,
+                    max_output_tokens=500,
                 ),
             )
 
