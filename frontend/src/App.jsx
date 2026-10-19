@@ -1198,7 +1198,24 @@ function localAgricultureAnswer(question, farm, decision, language) {
    ================================================================ */
 
 async function askRealAI(question, farm, decision, language) {
-  const endpoint = AI_API_URL || "/api/chat";
+  // The Python backend expects lang as a query parameter and only
+  // crop_id + question in the JSON request body.
+  const baseEndpoint = AI_API_URL || "/api/chat";
+  const lang = language === "kn" ? "kn" : "en";
+  const endpoint = `${baseEndpoint}?lang=${lang}`;
+  const cropId = decision?.crop?.id || farm?.crop || "tomato";
+
+  const fieldContext = [
+    `Farmer's question: ${question}`,
+    `Crop: ${decision?.crop?.name || farm?.crop || cropId}`,
+    `Growth stage: ${decision?.stage || farm?.stage || "not provided"}`,
+    `Soil type: ${farm?.soilType || "not provided"}`,
+    `Soil moisture: ${decision?.moisture ?? farm?.soilMoisture ?? "not provided"}%`,
+    `Temperature: ${decision?.temperature ?? farm?.temperature ?? "not provided"}°C`,
+    `Humidity: ${farm?.humidity ?? "not provided"}%`,
+    `Rain next 24 hours: ${decision?.rainNext ?? farm?.rainNext24 ?? "not provided"} mm`,
+    "Give practical, cautious, step-by-step guidance. Do not claim a photo diagnosis because no photo is included in this chat request. For serious or uncertain crop problems, recommend a local agriculture expert.",
+  ].join("\n");
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -1206,18 +1223,20 @@ async function askRealAI(question, farm, decision, language) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      question,
-      language,
-      farm,
-      decision,
-      cropDatabase: PLANTS,
-      diseaseDatabase: DISEASES,
-      system: "You are FarmSense, an agriculture decision-support assistant. Give practical, cautious, step-by-step guidance. For PS-01, prioritize what the farmer should do next, when, and why, using the provided field and weather context. Never claim a photo is a definitive diagnosis. Do not invent sensor readings or confidence scores.",
+      crop_id: cropId,
+      question: fieldContext,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`AI backend returned ${response.status}`);
+    let detail = "";
+    try {
+      const errorData = await response.json();
+      detail = errorData.detail || errorData.error || "";
+    } catch {
+      // Keep the HTTP status if the server did not return JSON.
+    }
+    throw new Error(`AI backend returned ${response.status}${detail ? `: ${detail}` : ""}`);
   }
 
   const data = await response.json();
@@ -2629,7 +2648,7 @@ function Assistant({ language, farm, decision, text }) {
   ]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState("auto");
+  const [mode, setMode] = useState("ai");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
   const recognitionRef = useRef(null);
@@ -2680,10 +2699,11 @@ function Assistant({ language, farm, decision, text }) {
           content: fallback,
         },
       ]);
+      const detail = err?.message || "Unknown request error";
       setError(
         language === "kn"
-          ? "AI backend ಸಂಪರ್ಕವಾಗಿಲ್ಲ; Local FarmSense ಉತ್ತರವನ್ನು ಬಳಸಲಾಗಿದೆ."
-          : "The AI backend is not connected; Local FarmSense fallback was used."
+          ? `AI ಸಂಪರ್ಕ ವಿಫಲವಾಗಿದೆ (${detail}). Vite proxy ಮತ್ತು backend ಪರಿಶೀಲಿಸಿ.`
+          : `AI request failed: ${detail}. Check the Vite proxy and backend terminal.`
       );
     } finally {
       setBusy(false);

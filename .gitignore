@@ -3,3 +3,15 @@ __pycache__/
 backend/app/data/agri.db
 backend/app/data/uploads/
 backend/.venv/
+
+# Private environment files
+.env
+backend/.env
+
+.env
+backend/.env
+
+# Local development files
+.vscode/
+**/node_modules/
+*.save

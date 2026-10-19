@@ -1,8 +1,9 @@
 import re
 from pathlib import Path
 
-import streamlit as st
-from PIL import Image
+import importlib
+
+st = importlib.import_module("streamlit")
 
 from krushi_mitra_ai.auth.security import generate_auto_user_id, hash_password, password_strength_error
 from krushi_mitra_ai.config import LANGUAGE_OPTIONS
@@ -81,8 +82,7 @@ def render_register_page() -> None:
     photo_path = None
     if photo:
         try:
-            image = Image.open(photo)
-            st.image(image, caption="Profile Preview", width=140)
+            st.image(photo, caption="Profile Preview", width=140)
             extension = Path(photo.name).suffix.lower() or ".png"
             photo_path = save_profile_photo(chosen_user_id, photo.getvalue(), extension)
         except Exception:
