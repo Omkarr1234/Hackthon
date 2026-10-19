@@ -116,11 +116,9 @@ class ChatRequest(BaseModel):
 @router.post("/chat")
 def chat(payload: ChatRequest, lang: str = Query(default="en")):
     ensure_lang(lang)
-    crop = get_crop_by_id(payload.crop_id)
-    if crop is None:
-        raise HTTPException(status_code=404, detail="Crop not found.")
-
-    return get_chat_response(crop_id=payload.crop_id, question=payload.question, lang=lang)
+    # Allow questions about any crop, even if it is not in our crop database.
+    # Gemini can answer general farming questions using the supplied crop ID/name.
+    return get_chat_response(crop_id=payload.crop_id.strip(), question=payload.question, lang=lang)
 @router.post("/plant/analyze")
 async def plant_analyze(
     image: UploadFile = File(...),
