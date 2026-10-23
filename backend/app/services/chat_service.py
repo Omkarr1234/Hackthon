@@ -1,10 +1,8 @@
-
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from groq import Groq
 
 from app.services.data_service import get_chat_faq
 
@@ -12,19 +10,6 @@ from app.services.data_service import get_chat_faq
 # Load environment variables from the backend folder
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
-
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-
-# Configure Gemini with a 20-second HTTP timeout
-_client = (
-    genai.Client(
-        api_key=API_KEY,
-        http_options=types.HttpOptions(timeout=60000),
-    )
-    if API_KEY
-    else None
-)
 
 
 def _normalize(text: str) -> str:
@@ -60,37 +45,116 @@ def _match_faq(crop_id: str, question: str):
 
 
 def _build_prompt(question: str, lang: str, crop_id: str = "") -> str:
-    language = {"kn": "Kannada", "hi": "Hindi", "en": "English"}.get(lang, "English")
+    language = {
+        "kn": "Kannada",
+        "hi": "Hindi",
+        "en": "English",
+    }.get(lang, "English")
+
     crop_context = (
-        f"The user explicitly included this crop context: {crop_id}. Use it only if relevant."
-        if crop_id else
-        "No saved Farm Profile, crop, soil moisture, rainfall, or field decision context is supplied. Answer the user's actual question independently."
+        f"The user explicitly supplied this crop context: {crop_id}. "
+        "Use it only when relevant."
+        if crop_id
+        else (
+            "No Farm Profile, soil moisture, rainfall, or field data was "
+            "supplied. Answer the user's actual question independently."
+        )
     )
+
     return f"""
-You are FarmSense AI, a general-purpose agriculture assistant for farmers in India. You can answer questions about crop cultivation, soil, irrigation, farm machinery, tractors, labour planning, post-harvest handling, agricultural business, market concepts, and agricultural techniques.
+You are FarmSense AI, a general-purpose agriculture assistant for farmers
+in India.
 
 Reply in {language}.
 
-USER'S EXACT QUESTION:
+USER'S QUESTION:
 {question}
 
-CONTEXT POLICY:
+CONTEXT:
 {crop_context}
 
 Instructions:
 - Answer the exact question in practical, simple language.
-- Do not restrict answers to tomatoes or a local FAQ database.
-- Do not infer or invent farm-profile details.
-- For crop-growing questions, give relevant step-by-step guidance including timing and common mistakes.
-- Ask a short clarification when essential information is missing.
-- Do not invent live weather, current mandi prices, government scheme eligibility, citations, or measurements you cannot access.
-- Clearly label uncertainty. Do not diagnose a plant disease with certainty from insufficient evidence.
-- Never invent pesticide dosages. Follow product labels and recommend local agriculture experts for uncertain diagnoses or chemical treatment.
-- For machinery safety questions, advise turning off the engine, securing the machine, and consulting a qualified mechanic where appropriate.
-- Organize longer answers with headings and numbered steps. Finish the answer completely.
+- Support agriculture questions beyond tomatoes and local FAQs.
+- Do not invent saved farm-profile details.
+- For cultivation questions, give relevant step-by-step guidance.
+- Ask a short clarification when essential details are missing.
+- Never invent live weather, current mandi prices, scheme eligibility,
+  citations, or measurements you cannot access.
+- Clearly communicate uncertainty.
+- Do not diagnose plant disease with certainty from insufficient evidence.
+- Never invent pesticide dosages. Follow the product label and recommend
+  a local agricultural expert when diagnosis or treatment is uncertain.
+- For machinery safety, advise switching off and securing the machine
+  before inspection.
+- Use headings and numbered steps when useful.
+- Finish the answer completely.
 """.strip()
 
 
 def get_chat_response(crop_id: str, question: str, lang: str):
-    """Answer independently with Groq when configured, otherwise Gemini."""
+    """Generate an agriculture answer using Groq only."""
+
+    question = (question or "").strip()
     lang = lang if lang in {"en", "kn", "hi"} else "en"
+
+    if not question:
+        return "Please enter your agriculture question."
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return (
+            "AI service is not configured. "
+            "Please configure GROQ_API_KEY in backend/.env."
+        )
+
+    model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+
+    try:
+        client = Groq(
+            api_key=api_key,
+            timeout=30.0,
+            max_retries=1,
+        )
+
+        prompt = _build_prompt(question, lang, crop_id or "")
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                {
+                    "role": "user",
+                    "content": question,
+                },
+            ],
+            max_completion_tokens=2500,
+        )
+
+        answer = response.choices[0].message.content
+
+        if answer and answer.strip():
+            return answer.strip()
+
+        print(
+            f"Groq returned empty content. "
+            f"Finish reason: {response.choices[0].finish_reason}",
+            flush=True,
+        )
+        return (
+            "I couldn't generate a complete answer. "
+            "Please try asking your question again."
+        )
+
+    except Exception as exc:
+        print(
+            f"Groq chat error: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        return (
+            "The AI service is temporarily unavailable. "
+            "Please try again shortly."
+        )

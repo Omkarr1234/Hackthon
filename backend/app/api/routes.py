@@ -22,7 +22,16 @@ router = APIRouter(prefix="/api")
 
 def ensure_lang(lang: str):
     if lang not in {"en", "kn", "hi"}:
-        raise HTTPException(status_code=400, detail="Language must be 'en', 'kn', or 'hi'.")
+        raise HTTPException(
+            status_code=400,
+            detail="Language must be 'en', 'kn', or 'hi'.",
+        )
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=5000)
+    crop_id: str = ""
+    lang: str = "en"
 
 
 @router.get("/health")
@@ -38,7 +47,11 @@ def list_crops(lang: str = Query(default="en")):
     summary_key = "summary_kn" if lang == "kn" else "summary_en"
 
     return [
-        {"id": crop["id"], "name": crop[name_key], "summary": crop[summary_key]}
+        {
+            "id": crop["id"],
+            "name": crop[name_key],
+            "summary": crop[summary_key],
+        }
         for crop in crops
     ]
 
@@ -50,7 +63,9 @@ def crop_guide(crop_id: str, lang: str = Query(default="en")):
 
     if crop is None:
         raise HTTPException(status_code=404, detail="Crop not found")
+
     suffix = "kn" if lang == "kn" else "en"
+
     return {
         "id": crop["id"],
         "name": crop[f"name_{suffix}"],
@@ -60,13 +75,21 @@ def crop_guide(crop_id: str, lang: str = Query(default="en")):
 
 
 @router.get("/conditions/{condition_id}")
-def condition_detail(condition_id: str, lang: str = Query(default="en")):
+def condition_detail(
+    condition_id: str,
+    lang: str = Query(default="en"),
+):
     ensure_lang(lang)
     condition = get_condition_by_id(condition_id)
+
     if condition is None:
-        raise HTTPException(status_code=404, detail="Condition not found.")
+        raise HTTPException(
+            status_code=404,
+            detail="Condition not found.",
+        )
 
     suffix = "kn" if lang == "kn" else "en"
+
     return {
         "id": condition["id"],
         "crop_id": condition["crop_id"],
@@ -77,12 +100,20 @@ def condition_detail(condition_id: str, lang: str = Query(default="en")):
 
 
 @router.get("/crops/{crop_id}/conditions")
-def crop_conditions(crop_id: str, lang: str = Query(default="en")):
+def crop_conditions(
+    crop_id: str,
+    lang: str = Query(default="en"),
+):
     ensure_lang(lang)
     conditions = get_conditions_by_crop(crop_id)
     suffix = "kn" if lang == "kn" else "en"
+
     return [
-        {"id": condition["id"], "name": condition[f"name_{suffix}"], "type": condition["type"]}
+        {
+            "id": condition["id"],
+            "name": condition[f"name_{suffix}"],
+            "type": condition["type"],
+        }
         for condition in conditions
     ]
 
@@ -95,3 +126,19 @@ async def screening(
 ):
     ensure_lang(lang)
     return await run_screening(crop_id, file)
+
+
+@router.post("/chat")
+def chat(request: ChatRequest):
+    ensure_lang(request.lang)
+
+    answer = get_chat_response(
+        crop_id=request.crop_id,
+        question=request.question,
+        lang=request.lang,
+    )
+
+    return {
+        "answer": answer,
+        "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
+    }
