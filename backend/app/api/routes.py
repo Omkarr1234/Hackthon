@@ -1,4 +1,9 @@
 import importlib
+import os
+import json
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
@@ -16,8 +21,8 @@ router = APIRouter(prefix="/api")
 
 
 def ensure_lang(lang: str):
-    if lang not in {"en", "kn"}:
-        raise HTTPException(status_code=400, detail="Language must be 'en' or 'kn'.")
+    if lang not in {"en", "kn", "hi"}:
+        raise HTTPException(status_code=400, detail="Language must be 'en', 'kn', or 'hi'.")
 
 
 @router.get("/health")
@@ -89,55 +94,4 @@ async def screening(
     file: UploadFile = File(...),
 ):
     ensure_lang(lang)
-    crop = get_crop_by_id(crop_id)
-    if crop is None:
-        raise HTTPException(status_code=404, detail="Crop not found.")
-
-    try:
-        result = await run_screening(crop_id=crop_id, file=file)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    condition = get_condition_by_id(result["possible_condition_id"])
-    suffix = "kn" if lang == "kn" else "en"
-
-    return {
-        **result,
-        "possible_condition_name": condition[f"name_{suffix}"] if condition else None,
-        "message": "Possible condition identified from uploaded image.",
-    }
-
-
-class ChatRequest(BaseModel):
-    crop_id: str = Field(min_length=1, max_length=100)
-    question: str = Field(min_length=2, max_length=4000)
-
-@router.post("/chat")
-def chat(payload: ChatRequest, lang: str = Query(default="en")):
-    ensure_lang(lang)
-    # Allow questions about any crop, even if it is not in our crop database.
-    # Gemini can answer general farming questions using the supplied crop ID/name.
-    return get_chat_response(crop_id=payload.crop_id.strip(), question=payload.question, lang=lang)
-@router.post("/plant/analyze")
-async def plant_analyze(
-    image: UploadFile = File(...),
-    crop: str = Form(default="unknown"),
-    symptoms: str = Form(default=""),
-    language: str = Form(default="en"),
-):
-    content_type = image.content_type or ""
-    if not content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Please upload an image file.")
-    raw = await image.read()
-    if len(raw) > 8 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Image must be 8 MB or smaller.")
-    try:
-        vision_service = importlib.import_module("app.services.vision_service")
-        return vision_service.analyze_plant_image(
-            raw, content_type, crop, symptoms, language
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        print(f"FarmSense Plant Doctor error: {type(exc).__name__}: {exc}")
-        raise HTTPException(status_code=502, detail="Plant Doctor image analysis failed. Check the backend terminal.") from exc
+    return await run_screening(crop_id, file)
