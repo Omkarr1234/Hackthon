@@ -1,67 +1,140 @@
 import os
 import json
+import base64
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from groq import Groq
+
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
 
+VISION_MODEL = os.getenv(
+    "GROQ_VISION_MODEL",
+    "qwen/qwen3.8-27b",
+)
 
-def analyze_plant_image(raw, content_type, crop, symptoms, language="en"):
-    api_key = os.getenv("GEMINI_API_KEY")
-    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+def analyze_plant_image(
+    raw,
+    content_type,
+    crop,
+    symptoms,
+    language="en",
+):
+    api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is missing in backend/.env")
+        raise RuntimeError(
+            "GROQ_API_KEY is missing from the backend environment."
+        )
+
     if not raw:
         raise ValueError("The uploaded image is empty.")
 
-    client = genai.Client(
-        api_key=api_key,
-        http_options=types.HttpOptions(timeout=60000),
+    if not content_type or not content_type.startswith("image/"):
+        raise ValueError("Please upload a valid image file.")
+
+    # Convert the uploaded image to a base64 data URL.
+    encoded_image = base64.b64encode(raw).decode("utf-8")
+    image_data_url = (
+        f"data:{content_type};base64,{encoded_image}"
     )
 
     language_name = "Kannada" if language == "kn" else "English"
+
     prompt = f"""
-Analyze this plant photograph for possible plant health problems.
+You are the Plant Doctor assistant in Agri Saathi AI.
+
+Analyze this plant photograph for possible plant health issues.
+
 Crop: {crop or "unknown"}
-Symptoms reported by the user: {symptoms or "not provided"}
-Reply in {language_name}.
+Farmer-reported symptoms: {symptoms or "not provided"}
+Response language: {language_name}
 
-Return only valid JSON with three string fields:
-condition, explanation, advice.
+Return only a valid JSON object with these string fields:
+- condition
+- explanation
+- advice
 
-Be cautious. Do not invent a diagnosis or confidence score.
-If the image is unclear, state that. Do not prescribe pesticide dosages.
-Recommend an agricultural expert when the diagnosis is uncertain.
+Requirements:
+- Describe only what the image and supplied symptoms support.
+- If the image is unclear, say that the diagnosis is uncertain.
+- Do not invent a confidence score.
+- Do not claim certainty about a plant disease from an image alone.
+- Do not invent pesticide dosages or chemical application instructions.
+- Give safe, practical next steps and suggest local agricultural
+  expert confirmation when appropriate.
+- Write all three fields in {language_name}.
 """
 
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            types.Part.from_bytes(data=raw, mime_type=content_type),
-            prompt,
-        ],
-        config=types.GenerateContentConfig(
-            temperature=0.2,
-            max_output_tokens=700,
-            response_mime_type="application/json",
-        ),
+    client = Groq(
+        api_key=api_key,
+        timeout=60.0,
+        max_retries=1,
     )
 
-    if not response.text:
-        raise RuntimeError("Gemini returned an empty response.")
-
     try:
-        result = json.loads(response.text)
+        response = client.chat.completions.create(
+            model=VISION_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt,
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_data_url,
+                            },
+                        },
+                    ],
+                }
+            ],
+            temperature=0.2,
+            max_completion_tokens=800,
+            response_format={"type": "json_object"},
+        )
+
+        text = (
+            response.choices[0].message.content or ""
+        ).strip()
+
+        if not text:
+            raise RuntimeError(
+                "Groq returned an empty image-analysis response."
+            )
+
+        result = json.loads(text)
+
     except json.JSONDecodeError as exc:
-        raise RuntimeError("Gemini returned invalid JSON.") from exc
+        raise RuntimeError(
+            "Groq returned invalid JSON for the plant image."
+        ) from exc
+
+    except Exception as exc:
+        print(
+            f"AgriSaathi Plant Doctor error: "
+            f"{type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        raise
 
     for field in ("condition", "explanation", "advice"):
-        if not isinstance(result.get(field), str) or not result[field].strip():
-            raise RuntimeError(f"Gemini response is missing {field}.")
+        if (
+            not isinstance(result.get(field), str)
+            or not result[field].strip()
+        ):
+            raise RuntimeError(
+                f"Groq response is missing the '{field}' field."
+            )
 
-    return {key: result[key] for key in ("condition", "explanation", "advice")}
+    return {
+        "condition": result["condition"].strip(),
+        "explanation": result["explanation"].strip(),
+        "advice": result["advice"].strip(),
+    }

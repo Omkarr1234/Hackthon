@@ -109,9 +109,8 @@ async def screening(
 
 
 class ChatRequest(BaseModel):
-    crop_id: str = Field(min_length=1)
-    question: str = Field(min_length=2, max_length=500)
-
+    crop_id: str = Field(min_length=1, max_length=100)
+    question: str = Field(min_length=2, max_length=4000)
 
 @router.post("/chat")
 def chat(payload: ChatRequest, lang: str = Query(default="en")):

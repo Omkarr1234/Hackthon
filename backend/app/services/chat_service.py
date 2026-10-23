@@ -1,29 +1,18 @@
-
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from groq import Groq
 
 from app.services.data_service import get_chat_faq
 
 
-# Load environment variables from the backend folder
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-
-# Configure Gemini with a 20-second HTTP timeout
-_client = (
-    genai.Client(
-        api_key=API_KEY,
-        http_options=types.HttpOptions(timeout=60000),
-    )
-    if API_KEY
-    else None
+TEXT_MODEL = os.getenv(
+    "GROQ_MODEL",
+    "openai/gpt-oss-20b",
 )
 
 
@@ -32,7 +21,7 @@ def _normalize(text: str) -> str:
 
 
 def _match_faq(crop_id: str, question: str):
-    """Return an FAQ only when one of its keywords matches."""
+    """Find a matching FAQ using its keywords."""
     normalized_question = _normalize(question)
 
     if not normalized_question:
@@ -42,14 +31,13 @@ def _match_faq(crop_id: str, question: str):
         faq_items = get_chat_faq()
     except Exception as exc:
         print(
-            f"FarmSense FAQ error: {type(exc).__name__}: {exc}",
+            f"AgriSaathi FAQ error: {type(exc).__name__}: {exc}",
             flush=True,
         )
         return None
 
     for item in faq_items:
         keywords = item.get("keywords", [])
-
         if any(
             str(keyword).lower() in normalized_question
             for keyword in keywords
@@ -60,10 +48,11 @@ def _match_faq(crop_id: str, question: str):
 
 
 def get_chat_response(crop_id: str, question: str, lang: str):
-    """Answer farming questions using Gemini, then FAQ if needed."""
+    """Answer farming questions using Groq, with an FAQ fallback."""
 
     lang = "kn" if lang == "kn" else "en"
     question = (question or "").strip()
+    crop_id = (crop_id or "unknown").strip()
 
     if not question:
         return {
@@ -76,74 +65,65 @@ def get_chat_response(crop_id: str, question: str, lang: str):
             "safety_note": "General guidance only.",
         }
 
-    ai_error = False
+    api_key = os.getenv("GROQ_API_KEY")
 
-    # Try Gemini first
-    if _client:
+    if api_key:
         try:
+            client = Groq(
+                api_key=api_key,
+                timeout=45.0,
+                max_retries=1,
+            )
+
             language = "Kannada" if lang == "kn" else "English"
 
-            crop_context = (
-                f'The currently selected crop is "{crop_id}". '
-                "Use this crop as context only when relevant. "
-                "If the farmer asks about another crop, answer about "
-                "that crop. For general questions, answer generally."
-            )
+            system_prompt = f"""
+You are Agri Saathi AI, a practical agriculture assistant
+for farmers in India.
 
-            prompt = f"""
-You are FarmSense, a practical agriculture assistant for farmers in India.
+Respond entirely in {language}. Use simple, clear language.
 
-Reply in {language}.
+Help farmers with crop cultivation, soil, irrigation,
+nutrient management, pests, diseases, harvesting and
+general agriculture questions.
 
-Farmer's exact question:
-{question}
+Give practical, numbered steps when appropriate.
+Explain what to do, when to do it and why.
+Consider the selected crop, but if the farmer asks about
+a different crop, answer about the crop they actually named.
 
-Context:
-{crop_context}
+Selected crop context: {crop_id}
 
-Instructions:
-- Your main purpose is to explain farming procedures step by step so
-  farmers can follow them in the field.
-- Answer the exact question asked, in simple, practical language.
-- For questions about growing a crop, provide a complete numbered
-  procedure: selecting planting material, land and soil preparation,
-  planting, spacing, irrigation, nutrient management, weed control,
-  pest and disease monitoring, crop care, and harvesting, as relevant.
-- For each step, explain WHAT to do, HOW to do it, WHEN to do it,
-  and WHY it matters.
-- Include practical examples, common mistakes to avoid, low-cost options,
-  and warning signs when relevant.
-- For broad farming questions, aim for a detailed answer of about
-  400-700 words when the topic requires it. For simple questions,
-  answer proportionately. Never add irrelevant information just to
-  increase length.
-- For follow-up questions such as "step by step", "explain more",
-  "next", or "how to do it", continue the same topic and crop from the
-  conversation when that context is available. Do not switch to a
-  different crop without a reason.
-- Treat the selected crop as context, not as a replacement for the
-  farmer's explicit question. If the farmer names another crop, use
-  the crop they asked about.
-- Reply entirely in the requested language: English or Kannada.
-- Do not invent weather, live mandi prices, soil measurements, or other
-  information you cannot access. Clearly label estimates and demo data.
-- Do not diagnose plant diseases with certainty without sufficient evidence.
-- Never invent pesticide dosages. Follow product labels and recommend
-  local agricultural experts when diagnosis or chemical treatment is uncertain.
-- Organize long answers with headings and numbered steps.
-- Finish the answer completely. Do not stop mid-sentence or mid-step.
+Safety requirements:
+- Do not invent live weather, soil readings or mandi prices.
+- Do not claim that you checked live data unless it was provided.
+- Do not claim certainty when identifying plant diseases.
+- Never invent pesticide dosages or chemical instructions.
+- Encourage local agricultural expert advice when the diagnosis
+  or treatment is uncertain.
+- Distinguish general guidance from verified local recommendations.
+- Keep the answer useful and focused.
 """
 
-            response = _client.models.generate_content(
-                model=MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    max_output_tokens=1200,
-                ),
+            completion = client.chat.completions.create(
+                model=TEXT_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": question,
+                    },
+                ],
+                temperature=0.3,
+                max_completion_tokens=1200,
             )
 
-            answer = (response.text or "").strip()
+            answer = (
+                completion.choices[0].message.content or ""
+            ).strip()
 
             if answer:
                 return {
@@ -152,25 +132,30 @@ Instructions:
                     "safety_note": "General guidance only.",
                 }
 
-            ai_error = True
             print(
-                "FarmSense Gemini error: Empty response",
+                "AgriSaathi Groq error: Empty response",
                 flush=True,
             )
 
         except Exception as exc:
-            ai_error = True
+            # Keep diagnostic information in server logs only.
+            # Never return the API key or secret configuration to users.
             print(
-                f"FarmSense Gemini error: "
+                f"AgriSaathi Groq error: "
                 f"{type(exc).__name__}: {exc}",
                 flush=True,
             )
 
-    # If Gemini fails, try the existing FAQ database
+    # Use the existing FAQ database when the AI is unavailable.
     faq_item = _match_faq(crop_id, question)
 
     if faq_item:
-        answer = (faq_item.get("answer") or "").strip()
+        answer_key = "answer_kn" if lang == "kn" else "answer_en"
+        answer = (
+            faq_item.get(answer_key)
+            or faq_item.get("answer")
+            or ""
+        ).strip()
 
         if answer:
             return {
@@ -179,42 +164,27 @@ Instructions:
                 "safety_note": "General guidance only.",
             }
 
-    # Return an honest error message instead of misleading the farmer
-    if ai_error:
-        return {
-            "answer": (
-                "The AI service is temporarily unavailable. "
-                "Please try again shortly."
-                if lang == "en"
-                else "AI ಸೇವೆ ತಾತ್ಕಾಲಿಕವಾಗಿ ಲಭ್ಯವಿಲ್ಲ. "
-                     "ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
-            ),
-            "matched_intent": "ai_unavailable",
-            "safety_note": "General guidance only.",
-        }
-
-    if not _client:
-        return {
-            "answer": (
-                "The AI service is not configured. "
-                "Please check the GEMINI_API_KEY setting."
-                if lang == "en"
-                else "AI ಸೇವೆಯನ್ನು ಹೊಂದಿಸಲಾಗಿಲ್ಲ. "
-                     "GEMINI_API_KEY ಸೆಟ್ಟಿಂಗ್ ಪರಿಶೀಲಿಸಿ."
-            ),
-            "matched_intent": "ai_not_configured",
-            "safety_note": "General guidance only.",
-        }
-
-    # Final fallback when no FAQ matches
-    return {
-        "answer": (
-            "I couldn't find a suitable answer. Please try asking "
-            "about crop care, pests, irrigation, soil, or plant symptoms."
+    if not api_key:
+        message = (
+            "The AI service is not configured. Please configure "
+            "GROQ_API_KEY in the backend environment."
             if lang == "en"
-            else "ಸೂಕ್ತ ಉತ್ತರ ಸಿಗಲಿಲ್ಲ. ಬೆಳೆ ಆರೈಕೆ, ಕೀಟಗಳು, "
-                 "ನೀರಾವರಿ, ಮಣ್ಣು ಅಥವಾ ಸಸ್ಯದ ಲಕ್ಷಣಗಳ ಬಗ್ಗೆ ಕೇಳಿ."
-        ),
-        "matched_intent": "fallback",
+            else "AI ಸೇವೆಯನ್ನು ಹೊಂದಿಸಲಾಗಿಲ್ಲ. "
+                 "Backend environment ನಲ್ಲಿ GROQ_API_KEY ಹೊಂದಿಸಿ."
+        )
+        intent = "ai_not_configured"
+    else:
+        message = (
+            "The AI service is temporarily unavailable. "
+            "Please try again shortly."
+            if lang == "en"
+            else "AI ಸೇವೆ ತಾತ್ಕಾಲಿಕವಾಗಿ ಲಭ್ಯವಿಲ್ಲ. "
+                 "ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+        )
+        intent = "ai_unavailable"
+
+    return {
+        "answer": message,
+        "matched_intent": intent,
         "safety_note": "General guidance only.",
     }
