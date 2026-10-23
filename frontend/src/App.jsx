@@ -2376,13 +2376,6 @@ function FarmProfile({ farm, decision, text, updateFarm, go }) {
         </div>
       </section>
 
-      <section className="small-note-card" style={{ marginTop: 14 }}>
-        <b>Why this matches PS-01</b>
-        <p>
-          FarmSense combines farm/field observations, weather inputs and crop stage, identifies the current need or risk, and converts the inputs into a practical next action with timing and reasoning. The weather values can be live or manually entered when connectivity/location permission is unavailable.
-        </p>
-      </section>
-
       <button className="primary-button" onClick={() => go("home")}>
         ← {text.dashboard}
       </button>
