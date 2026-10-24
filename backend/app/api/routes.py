@@ -254,9 +254,13 @@ def get_mandi_prices(
             status_code=502,
             detail=f"Mandi data provider returned HTTP {exc.code}",
         ) from exc
+    
     except (URLError, TimeoutError, ValueError) as exc:
+        print(f"Mandi provider error: {type(exc).__name__}: {exc}")
         raise HTTPException(
-            status_code=502,
-            detail="Unable to retrieve mandi prices from the data provider.",
-        ) from exc
+           status_code=502,
+           detail="Unable to retrieve mandi prices from the data provider.",
+    ) from exc
+
+
 
