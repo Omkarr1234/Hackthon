@@ -142,3 +142,121 @@ def chat(request: ChatRequest):
         "answer": answer,
         "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
     }
+
+import os
+import json
+from datetime import datetime, timezone
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+
+@router.get("/mandi/prices")
+def get_mandi_prices(
+    state: str = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+    commodity: str | None = Query(default=None),
+    market: str | None = Query(default=None),
+):
+    api_key = os.getenv("DATA_GOV_IN_API_KEY")
+
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Mandi data API key is not configured on the backend."
+        )
+
+    params = {
+        "api-key": api_key,
+        "format": "json",
+        "limit": limit,
+        "filters[state]": state,
+    }
+
+    if commodity:
+        params["filters[commodity]"] = commodity
+    if market:
+        params["filters[market]"] = market
+
+    url = (
+        "https://api.data.gov.in/resource/"
+        "9ef84268-d588-465a-a308-a864a43d0070?"
+        + urlencode(params)
+    )
+
+    try:
+        req = Request(url, headers={"User-Agent": "FarmSense/1.0"})
+        with urlopen(req, timeout=20) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        return {
+            "records": data.get("records", []),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Mandi data provider returned HTTP {exc.code}"
+        )
+    except (URLError, TimeoutError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to retrieve mandi prices from the data provider."
+        )
+
+from datetime import datetime, timezone
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+
+@router.get("/mandi/prices")
+def get_mandi_prices(
+    state: str = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+    commodity: str | None = Query(default=None),
+    market: str | None = Query(default=None),
+):
+    api_key = os.getenv("DATA_GOV_IN_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Mandi data API key is not configured on the backend.",
+        )
+
+    params = {
+        "api-key": api_key,
+        "format": "json",
+        "limit": limit,
+        "filters[state]": state,
+    }
+    if commodity:
+        params["filters[commodity]"] = commodity
+    if market:
+        params["filters[market]"] = market
+
+    url = (
+        "https://api.data.gov.in/resource/"
+        "9ef84268-d588-465a-a308-a864a43d0070?"
+        + urlencode(params)
+    )
+
+    try:
+        request = Request(url, headers={"User-Agent": "FarmSense/1.0"})
+        with urlopen(request, timeout=20) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        return {
+            "records": data.get("records", []),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Mandi data provider returned HTTP {exc.code}",
+        ) from exc
+    except (URLError, TimeoutError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to retrieve mandi prices from the data provider.",
+        ) from exc
+
