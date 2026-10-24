@@ -1,140 +1,96 @@
+
 import os
-import json
-import base64
 from pathlib import Path
 
 from dotenv import load_dotenv
-from groq import Groq
+from google import genai
+from google.genai import types
+
+from app.services.data_service import get_chat_faq
 
 
+# Load environment variables from the backend folder
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
 
-VISION_MODEL = os.getenv(
-    "GROQ_VISION_MODEL",
-    "qwen/qwen3.8-27b",
+API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+
+# Configure Gemini with a 20-second HTTP timeout
+_client = (
+    genai.Client(
+        api_key=API_KEY,
+        http_options=types.HttpOptions(timeout=60000),
+    )
+    if API_KEY
+    else None
 )
 
 
-def analyze_plant_image(
-    raw,
-    content_type,
-    crop,
-    symptoms,
-    language="en",
-):
-    api_key = os.getenv("GROQ_API_KEY")
+def _normalize(text: str) -> str:
+    return (text or "").strip().lower()
 
-    if not api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY is missing from the backend environment."
-        )
 
-    if not raw:
-        raise ValueError("The uploaded image is empty.")
+def _match_faq(crop_id: str, question: str):
+    """Return an FAQ only when one of its keywords matches."""
+    normalized_question = _normalize(question)
 
-    if not content_type or not content_type.startswith("image/"):
-        raise ValueError("Please upload a valid image file.")
-
-    # Convert the uploaded image to a base64 data URL.
-    encoded_image = base64.b64encode(raw).decode("utf-8")
-    image_data_url = (
-        f"data:{content_type};base64,{encoded_image}"
-    )
-
-    language_name = "Kannada" if language == "kn" else "English"
-
-    prompt = f"""
-You are the Plant Doctor assistant in Agri Saathi AI.
-
-Analyze this plant photograph for possible plant health issues.
-
-Crop: {crop or "unknown"}
-Farmer-reported symptoms: {symptoms or "not provided"}
-Response language: {language_name}
-
-Return only a valid JSON object with these string fields:
-- condition
-- explanation
-- advice
-
-Requirements:
-- Describe only what the image and supplied symptoms support.
-- If the image is unclear, say that the diagnosis is uncertain.
-- Do not invent a confidence score.
-- Do not claim certainty about a plant disease from an image alone.
-- Do not invent pesticide dosages or chemical application instructions.
-- Give safe, practical next steps and suggest local agricultural
-  expert confirmation when appropriate.
-- Write all three fields in {language_name}.
-"""
-
-    client = Groq(
-        api_key=api_key,
-        timeout=60.0,
-        max_retries=1,
-    )
+    if not normalized_question:
+        return None
 
     try:
-        response = client.chat.completions.create(
-            model=VISION_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt,
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": image_data_url,
-                            },
-                        },
-                    ],
-                }
-            ],
-            temperature=0.2,
-            max_completion_tokens=800,
-            response_format={"type": "json_object"},
-        )
-
-        text = (
-            response.choices[0].message.content or ""
-        ).strip()
-
-        if not text:
-            raise RuntimeError(
-                "Groq returned an empty image-analysis response."
-            )
-
-        result = json.loads(text)
-
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            "Groq returned invalid JSON for the plant image."
-        ) from exc
-
+        faq_items = get_chat_faq()
     except Exception as exc:
         print(
-            f"AgriSaathi Plant Doctor error: "
-            f"{type(exc).__name__}: {exc}",
+            f"FarmSense FAQ error: {type(exc).__name__}: {exc}",
             flush=True,
         )
-        raise
+        return None
 
-    for field in ("condition", "explanation", "advice"):
-        if (
-            not isinstance(result.get(field), str)
-            or not result[field].strip()
+    for item in faq_items:
+        keywords = item.get("keywords", [])
+
+        if any(
+            str(keyword).lower() in normalized_question
+            for keyword in keywords
         ):
-            raise RuntimeError(
-                f"Groq response is missing the '{field}' field."
-            )
+            return item
 
-    return {
-        "condition": result["condition"].strip(),
-        "explanation": result["explanation"].strip(),
-        "advice": result["advice"].strip(),
-    }
+    return None
+
+
+def _build_prompt(question: str, lang: str, crop_id: str = "") -> str:
+    language = {"kn": "Kannada", "hi": "Hindi", "en": "English"}.get(lang, "English")
+    crop_context = (
+        f"The user explicitly included this crop context: {crop_id}. Use it only if relevant."
+        if crop_id else
+        "No saved Farm Profile, crop, soil moisture, rainfall, or field decision context is supplied. Answer the user's actual question independently."
+    )
+    return f"""
+You are FarmSense AI, a general-purpose agriculture assistant for farmers in India. You can answer questions about crop cultivation, soil, irrigation, farm machinery, tractors, labour planning, post-harvest handling, agricultural business, market concepts, and agricultural techniques.
+
+Reply in {language}.
+
+USER'S EXACT QUESTION:
+{question}
+
+CONTEXT POLICY:
+{crop_context}
+
+Instructions:
+- Answer the exact question in practical, simple language.
+- Do not restrict answers to tomatoes or a local FAQ database.
+- Do not infer or invent farm-profile details.
+- For crop-growing questions, give relevant step-by-step guidance including timing and common mistakes.
+- Ask a short clarification when essential information is missing.
+- Do not invent live weather, current mandi prices, government scheme eligibility, citations, or measurements you cannot access.
+- Clearly label uncertainty. Do not diagnose a plant disease with certainty from insufficient evidence.
+- Never invent pesticide dosages. Follow product labels and recommend local agriculture experts for uncertain diagnoses or chemical treatment.
+- For machinery safety questions, advise turning off the engine, securing the machine, and consulting a qualified mechanic where appropriate.
+- Organize longer answers with headings and numbered steps. Finish the answer completely.
+""".strip()
+
+
+def get_chat_response(crop_id: str, question: str, lang: str):
+    """Answer independently with Groq when configured, otherwise Gemini."""
+    lang = lang if lang in {"en", "kn", "hi"} else "en"
