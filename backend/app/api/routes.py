@@ -147,6 +147,59 @@ def chat(request: ChatRequest):
     }
 
 
+
+
+@router.post("/plant/analyze")
+async def plant_analyze(
+    image: UploadFile = File(...),
+    crop: str = Form(default="unknown"),
+    symptoms: str = Form(default=""),
+    language: str = Form(default="en"),
+):
+    content_type = image.content_type or ""
+
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload an image file.",
+        )
+
+    raw = await image.read()
+
+    if not raw:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded image is empty.",
+        )
+
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="Image must be 8 MB or smaller.",
+        )
+
+    try:
+        vision_service = importlib.import_module(
+            "app.services.vision_service"
+        )
+        return vision_service.analyze_plant_image(
+            raw, content_type, crop, symptoms, language
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        print(
+            f"FarmSense Plant Doctor error: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Plant Doctor image analysis failed. Check backend logs.",
+        ) from exc
+
 @router.get("/mandi/prices")
 def get_mandi_prices(
     state: str = Query(..., min_length=1),
