@@ -249,18 +249,19 @@ def get_mandi_prices(
             "records": data.get("records", []),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
         }
+    
     except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        print(f"Mandi HTTP error: {exc.code} - {body[:500]}")
         raise HTTPException(
             status_code=502,
-            detail=f"Mandi data provider returned HTTP {exc.code}",
+            detail=f"Mandi provider returned HTTP {exc.code}",
         ) from exc
-    
+
     except (URLError, TimeoutError, ValueError) as exc:
-        print(f"Mandi provider error: {type(exc).__name__}: {exc}")
+        print(f"Mandi provider error: {type(exc).__name__}: {exc!r}")
         raise HTTPException(
-           status_code=502,
-           detail="Unable to retrieve mandi prices from the data provider.",
-    ) from exc
-
-
+            status_code=502,
+            detail="Unable to retrieve mandi prices from the data provider.",
+        ) from exc
 
