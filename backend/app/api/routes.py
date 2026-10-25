@@ -1,9 +1,10 @@
-import importlib
-import os
+
 import json
-import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
+import os
+from datetime import datetime, timezone
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
@@ -16,6 +17,7 @@ from app.services.data_service import (
     get_crops,
 )
 from app.services.screening_service import run_screening
+
 
 router = APIRouter(prefix="/api")
 
@@ -43,6 +45,7 @@ def health():
 def list_crops(lang: str = Query(default="en")):
     ensure_lang(lang)
     crops = get_crops()
+
     name_key = "name_kn" if lang == "kn" else "name_en"
     summary_key = "summary_kn" if lang == "kn" else "summary_en"
 
@@ -143,17 +146,11 @@ def chat(request: ChatRequest):
         "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
     }
 
-import os
-import json
-from datetime import datetime, timezone
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 
 @router.get("/mandi/prices")
 def get_mandi_prices(
-    state: str = Query(...),
-    limit: int = Query(20, ge=1, le=100),
+    state: str = Query(..., min_length=1),
+    limit: int = Query(default=20, ge=1, le=100),
     commodity: str | None = Query(default=None),
     market: str | None = Query(default=None),
 ):
@@ -162,7 +159,7 @@ def get_mandi_prices(
     if not api_key:
         raise HTTPException(
             status_code=503,
-            detail="Mandi data API key is not configured on the backend."
+            detail="Mandi API key is not configured on the backend.",
         )
 
     params = {
@@ -174,6 +171,7 @@ def get_mandi_prices(
 
     if commodity:
         params["filters[commodity]"] = commodity
+
     if market:
         params["filters[market]"] = market
 
@@ -184,84 +182,48 @@ def get_mandi_prices(
     )
 
     try:
-        req = Request(url, headers={"User-Agent": "FarmSense/1.0"})
-        with urlopen(req, timeout=20) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        request = Request(
+            url,
+            headers={"User-Agent": "FarmSense/1.0"},
+        )
+
+        with urlopen(request, timeout=30) as response:
+            raw_data = response.read().decode("utf-8")
+
+        data = json.loads(raw_data)
+
+        if data.get("status") != "ok":
+            print(
+                "Mandi API returned an unexpected response:",
+                data.get("message", "Unknown response"),
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Government Mandi API returned an unsuccessful response.",
+            )
 
         return {
             "records": data.get("records", []),
+            "total": data.get("total", 0),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    except HTTPError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Mandi data provider returned HTTP {exc.code}"
-        )
-    except (URLError, TimeoutError, ValueError) as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="Unable to retrieve mandi prices from the data provider."
-        )
+    except HTTPException:
+        raise
 
-from datetime import datetime, timezone
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
-
-@router.get("/mandi/prices")
-def get_mandi_prices(
-    state: str = Query(...),
-    limit: int = Query(20, ge=1, le=100),
-    commodity: str | None = Query(default=None),
-    market: str | None = Query(default=None),
-):
-    api_key = os.getenv("DATA_GOV_IN_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Mandi data API key is not configured on the backend.",
-        )
-
-    params = {
-        "api-key": api_key,
-        "format": "json",
-        "limit": limit,
-        "filters[state]": state,
-    }
-    if commodity:
-        params["filters[commodity]"] = commodity
-    if market:
-        params["filters[market]"] = market
-
-    url = (
-        "https://api.data.gov.in/resource/"
-        "9ef84268-d588-465a-a308-a864a43d0070?"
-        + urlencode(params)
-    )
-
-    try:
-        request = Request(url, headers={"User-Agent": "FarmSense/1.0"})
-        with urlopen(request, timeout=20) as response:
-            data = json.loads(response.read().decode("utf-8"))
-
-        return {
-            "records": data.get("records", []),
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
-        }
-    
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         print(f"Mandi HTTP error: {exc.code} - {body[:500]}")
+
         raise HTTPException(
             status_code=502,
-            detail=f"Mandi provider returned HTTP {exc.code}",
+            detail=f"Government Mandi API returned HTTP {exc.code}.",
         ) from exc
 
-    except (URLError, TimeoutError, ValueError) as exc:
+    except (URLError, TimeoutError, OSError, ValueError) as exc:
         print(f"Mandi provider error: {type(exc).__name__}: {exc!r}")
+
         raise HTTPException(
             status_code=502,
-            detail="Unable to retrieve mandi prices from the data provider.",
+            detail="Unable to retrieve prices from the Government Mandi API.",
         ) from exc
-
