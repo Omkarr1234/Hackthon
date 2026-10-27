@@ -166,7 +166,7 @@ img{max-width:100%;display:block}
 
 .language-button:hover,.back-button:hover,.logout-button:hover{background:var(--green-50)}
 
-.user-menu{display:flex;align-items:center;gap:7px}
+.user-menu{display:flex;align-items:center;gap:7px}.demo-mode-label{font-size:10px;font-weight:800;color:var(--green-700);text-transform:uppercase;letter-spacing:.04em}
 
 .user-avatar,.round-icon{
 
