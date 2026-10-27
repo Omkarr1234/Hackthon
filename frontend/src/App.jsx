@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import { getPlantDoctorGuidance } from "./data/plantDoctorKnowledge";
+import MandiPrices from "./components/MandiPrices";
+import "./components/FeaturePages.css";
+import { AccountPage, EquipmentPage, LabourPage, NewsPage, ProductsPage, SettingsPage, ShopsPage, WeatherPage } from "./components/FeaturePages";
 
 /*
   ================================================================
@@ -52,11 +56,10 @@ import "./App.css";
   Set AI_API_URL below or use /api/chat.
   The frontend never contains an API key.
 
-  OPTIONAL REAL VISION CONNECTION
+  OFFLINE PLANT DOCTOR
   ---------------------------------------------------------------
-  Use /api/plant/analyze for actual image-model analysis.
-  This frontend never invents a disease diagnosis or fake image
-  confidence score when a vision backend is absent.
+  Plant Doctor keeps the image on the device and uses bundled
+  symptom guidance. It does not claim to diagnose image pixels.
 
   IMPORTANT
   ---------------------------------------------------------------
@@ -71,8 +74,8 @@ import "./App.css";
    1. OPTIONAL AI ENDPOINTS
    ================================================================ */
 
-const AI_API_URL = (import.meta.env.VITE_API_URL || "https://agrisathi-ai-backend-ajed.onrender.com").replace(/\/$/, "") + "/api/chat";
-const VISION_API_URL = (import.meta.env.VITE_API_URL || "https://agrisathi-ai-backend-ajed.onrender.com").replace(/\/$/, "") + "/api/plant/analyze";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const AI_API_URL = `${API_BASE_URL}/api/chat`;
 
 
 /* ================================================================
@@ -1225,6 +1228,7 @@ async function askRealAI(question, farm, decision, language) {
     body: JSON.stringify({
       crop_id: cropId,
       question: fieldContext,
+      lang,
     }),
   });
 
@@ -1254,6 +1258,43 @@ async function askRealAI(question, farm, decision, language) {
    ================================================================ */
 
 const AUTH_STORAGE_KEY = "agri_saathi_farmsense_user_v1";
+const AUTH_TOKEN_KEY = "farmsense_session_token";
+
+async function parseAuthResponse(response, fallbackMessage) {
+  const contentType = response.headers.get("content-type") || "";
+  const raw = await response.text();
+  let data = {};
+
+  if (raw.trim() && contentType.toLowerCase().includes("application/json")) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(`Authentication server returned invalid JSON (HTTP ${response.status}).`);
+    }
+  } else if (raw.trim() && response.ok) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(`Authentication server returned an unexpected response (HTTP ${response.status}).`);
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.detail
+      || data.message
+      || (response.status >= 500
+        ? `${fallbackMessage}: backend server error (HTTP ${response.status}). Check backend logs.`
+        : `${fallbackMessage} (HTTP ${response.status}).`)
+    );
+  }
+
+  if (!raw.trim()) {
+    throw new Error(`${fallbackMessage}: the server returned an empty response.`);
+  }
+
+  return data;
+}
 
 const DEFAULT_FARM = {
   farmer: "Demo Farmer",
@@ -1284,13 +1325,42 @@ export default function App() {
   const [savedDecisions, setSavedDecisions] = useState([]);
   const [selectedCrop, setSelectedCrop] = useState(null);
   const [selectedDisease, setSelectedDisease] = useState(null);
-  const [authUser, setAuthUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
-    } catch {
-      return null;
+  const [authUser, setAuthUser] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      try {
+        const savedUser = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
+        if (savedUser?.is_demo) {
+          setAuthUser(savedUser);
+        }
+      } catch {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+      setAuthChecking(false);
+      return;
     }
-  });
+
+    fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => parseAuthResponse(response, "Session restoration failed"))
+      .then((user) => {
+        const sessionUser = user.email === "demo@agrisaathi.ai"
+          ? { ...user, is_demo: true }
+          : user;
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionUser));
+        setAuthUser(sessionUser);
+      })
+      .catch(() => {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setAuthUser(null);
+      })
+      .finally(() => setAuthChecking(false));
+  }, []);
 
   const text = TEXT[language];
 
@@ -1303,6 +1373,7 @@ export default function App() {
 
   function logoutUser() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthUser(null);
     setPage("home");
     setPageStack([]);
@@ -1358,6 +1429,10 @@ export default function App() {
     setSavedDecisions((old) => [record, ...old].slice(0, 15));
   }
 
+  if (authChecking) {
+    return <div className="farmsense-app"><div className="feature-empty">Checking your secure session…</div></div>;
+  }
+
   if (!authUser) {
     return (
       <div className="farmsense-app">
@@ -1411,6 +1486,7 @@ export default function App() {
           farm={farm}
           decision={decision}
           text={text}
+          demoMode={authUser?.is_demo}
         />
       )}
 
@@ -1453,8 +1529,18 @@ export default function App() {
           text={text}
           language={language}
           farm={farm}
+          demoMode={authUser?.is_demo}
         />
       )}
+      {page === "mandi" && <MandiPrices language={language} demoMode={authUser?.is_demo} />}
+      {page === "shops" && <ShopsPage demoMode={authUser?.is_demo} />}
+      {page === "news" && <NewsPage demoMode={authUser?.is_demo} />}
+      {page === "products" && <ProductsPage demoMode={authUser?.is_demo} />}
+      {page === "labour" && <LabourPage demoMode={authUser?.is_demo} />}
+      {page === "equipment" && <EquipmentPage demoMode={authUser?.is_demo} />}
+      {page === "weather" && <WeatherPage farm={farm} updateFarm={updateFarm} />}
+      {page === "account" && <AccountPage user={authUser} demoMode={authUser?.is_demo} />}
+      {page === "settings" && <SettingsPage language={language} setLanguage={setLanguage} />}
 
       <Footer />
     </div>
@@ -1473,7 +1559,16 @@ function Header({ page, language, setLanguage, go, back, text, user, onLogout })
     ["crops", text.crops],
     ["health", text.health],
     ["doctor", text.doctor],
+    ["mandi", "Mandi Prices"],
     ["assistant", text.assistant],
+    ["shops", "Agri Shops"],
+    ["news", "News"],
+    ["products", "Products"],
+    ["labour", "Labour"],
+    ["equipment", "Equipment"],
+    ["weather", "Weather"],
+    ["account", "My workspace"],
+    ["settings", "Settings"],
   ];
 
   return (
@@ -1508,6 +1603,7 @@ function Header({ page, language, setLanguage, go, back, text, user, onLogout })
         <div className="user-menu">
           <span className="user-avatar">👨‍🌾</span>
           <span className="user-name">{user?.name || user?.email || "Farmer"}</span>
+          {user?.is_demo && <span className="demo-mode-label">Demo mode</span>}
         </div>
 
         <button
@@ -1537,12 +1633,30 @@ function AuthPage({ language, setLanguage, onLogin }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
 
   const isKannada = language === "kn";
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
     setError("");
+
+    if (forgotMode) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        });
+        const data = await parseAuthResponse(response, "Could not create reset request");
+        setError(data.demo_reset_token
+          ? `Demo reset token: ${data.demo_reset_token}`
+          : data.message);
+      } catch (forgotError) {
+        setError(forgotError.message);
+      }
+      return;
+    }
 
     const cleanName = name.trim();
     const cleanEmail = email.trim().toLowerCase();
@@ -1566,85 +1680,43 @@ function AuthPage({ language, setLanguage, onLogin }) {
       return;
     }
 
-    if (cleanPassword.length < 6) {
+    if (cleanPassword.length < 8) {
       setError(
         isKannada
-          ? "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ 6 ಅಕ್ಷರಗಳಿರಬೇಕು."
-          : "Password must contain at least 6 characters."
+          ? "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ 8 ಅಕ್ಷರಗಳಿರಬೇಕು."
+          : "Password must contain at least 8 characters."
       );
       return;
     }
 
-    /*
-      Demo-only local authentication.
-      This keeps the hackathon prototype simple and avoids requiring
-      a database or auth server. Do not treat this as production security.
-    */
-    const databaseKey = "agri_saathi_demo_users_v1";
-    const savedUsers = JSON.parse(localStorage.getItem(databaseKey) || "[]");
-
-    if (mode === "register") {
-      const exists = savedUsers.some((u) => u.email === cleanEmail);
-      if (exists) {
-        setError(
-          isKannada
-            ? "ಈ ಇಮೇಲ್ ಈಗಾಗಲೇ ನೋಂದಾಯಿಸಲಾಗಿದೆ. Login ಮಾಡಿ."
-            : "This email is already registered. Please log in."
-        );
-        setMode("login");
-        return;
-      }
-
-      const user = {
-        name: cleanName,
-        email: cleanEmail,
-      };
-
-      savedUsers.push({
-        ...user,
-        password: cleanPassword,
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/${mode === "register" ? "register" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, password: cleanPassword }),
       });
-
-      localStorage.setItem(databaseKey, JSON.stringify(savedUsers));
-      onLogin(user);
-      return;
-    }
-
-    const matched = savedUsers.find(
-      (u) => u.email === cleanEmail && u.password === cleanPassword
-    );
-
-    /*
-      Built-in demo account for the judging/demo machine.
-      Demo credentials:
-      demo@agrisaathi.ai
-      123456
-    */
-    if (
-      (cleanEmail === "demo@agrisaathi.ai" && cleanPassword === "123456") ||
-      matched
-    ) {
-      onLogin(
-        matched
-          ? { name: matched.name, email: matched.email }
-          : { name: "Demo Farmer", email: "demo@agrisaathi.ai" }
+      const data = await parseAuthResponse(response, "Authentication failed");
+      if (!data.token || !data.user) throw new Error("Authentication returned an incomplete session.");
+      localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      onLogin(data.user);
+    } catch (authError) {
+      setError(
+        authError instanceof TypeError
+          ? "Cannot reach the authentication server. Start the backend or check VITE_API_BASE_URL."
+          : authError.message || (isKannada ? "ಲಾಗಿನ್ ವಿಫಲವಾಗಿದೆ." : "Authentication failed.")
       );
-      return;
     }
-
-    setError(
-      isKannada
-        ? "Login ವಿವರಗಳು ತಪ್ಪಾಗಿವೆ. Demo account ಬಳಸಿ: demo@agrisaathi.ai / 123456"
-        : "Incorrect login details. Demo account: demo@agrisaathi.ai / 123456"
-    );
   }
 
-  function fillDemo() {
-    setName("Demo Farmer");
-    setEmail("demo@agrisaathi.ai");
-    setPassword("123456");
-    setMode("login");
-    setError("");
+  async function openDemoDashboard() {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    onLogin({
+      id: "demo-local",
+      name: "Demo Farmer",
+      email: "demo@farmsense.local",
+      is_demo: true,
+      demo_profiles: true,
+    });
   }
 
   return (
@@ -1803,12 +1875,25 @@ function AuthPage({ language, setLanguage, onLogin }) {
                 : "Create account →"}
           </button>
 
+          {mode === "login" && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                setForgotMode((value) => !value);
+                setError("");
+              }}
+            >
+              {forgotMode ? "Back to login" : "Forgot password?"}
+            </button>
+          )}
+
           <button
             type="button"
             className="demo-login-button"
-            onClick={fillDemo}
+            onClick={openDemoDashboard}
           >
-            🎯 {isKannada ? "Demo account ತುಂಬಿಸಿ" : "Use Demo Account"}
+            🎯 {isKannada ? "Demo mode ತೆರೆಯಿರಿ" : "Use Demo Account (Demo Mode)"}
           </button>
 
           <div className="auth-switch">
@@ -1841,8 +1926,8 @@ function AuthPage({ language, setLanguage, onLogin }) {
 
           <small className="auth-note">
             {isKannada
-              ? "ಈ login demo purposeಗಾಗಿ localStorage ಬಳಸುತ್ತದೆ; production authentication backend ಸಂಪರ್ಕಿಸಬೇಕು."
-              : "Demo authentication uses localStorage. Production deployment should use a secure authentication backend."}
+              ? "Demo mode ಮಾದರಿ ಡೇಟಾವನ್ನು ಬಳಸುತ್ತದೆ; ಖಾತೆ ನೋಂದಣಿ ನಿಜವಾದ backend ನಲ್ಲಿ ಉಳಿಸಲಾಗುತ್ತದೆ."
+              : "Demo mode opens the sample dashboard without registration or external API keys. New accounts are saved by the backend."}
           </small>
         </form>
       </div>
@@ -2629,7 +2714,7 @@ function Field({ label, hint, children }) {
    15. AI ASSISTANT PAGE
    ================================================================ */
 
-function Assistant({ language, farm, decision, text }) {
+function Assistant({ language, farm, decision, text, demoMode = false }) {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -2641,7 +2726,7 @@ function Assistant({ language, farm, decision, text }) {
   ]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState("ai");
+  const [mode, setMode] = useState(demoMode ? "local" : "ai");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
   const recognitionRef = useRef(null);
@@ -3174,78 +3259,80 @@ function PlantDoctor({ text, language, farm }) {
   const [cropId, setCropId] = useState(farm.crop);
   const [symptoms, setSymptoms] = useState("");
   const [busy, setBusy] = useState(false);
+  const [offlineStatus, setOfflineStatus] = useState(
+    typeof navigator !== "undefined" && navigator.onLine === false
+      ? "Offline mode — symptom guidance is bundled in this app."
+      : "Offline-ready — no network or API key is needed for Plant Doctor.",
+  );
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    const updateNetworkStatus = () => {
+      setOfflineStatus(
+        navigator.onLine
+          ? "Online, but Plant Doctor remains offline-ready and does not send your image anywhere."
+          : "Offline mode — symptom guidance is bundled in this app.",
+      );
+    };
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+    return () => {
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+    };
+  }, []);
 
   function chooseFile(selected) {
     if (!selected) return;
+    if (!selected.type.startsWith("image/")) {
+      setOfflineStatus("Choose a JPG, PNG, WEBP, or another image file.");
+      setFile(null);
+      setPreview("");
+      setResult(null);
+      return;
+    }
+    if (selected.size > 8 * 1024 * 1024) {
+      setOfflineStatus("Image must be 8 MB or smaller.");
+      setFile(null);
+      setPreview("");
+      setResult(null);
+      return;
+    }
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
     setResult(null);
+    setOfflineStatus(
+      typeof navigator !== "undefined" && navigator.onLine === false
+        ? "Offline mode — image preview loaded locally."
+        : "Offline-ready — image stays on this device.",
+    );
   }
 
   async function analyzePhoto() {
-    if (!file) return;
+    if (!file || busy) return;
 
     setBusy(true);
-
-    try {
-      const endpoint = VISION_API_URL || "/api/plant/analyze";
-      const formData = new FormData();
-      formData.append("image", file);
-      formData.append("crop", cropById(cropId).name);
-      formData.append("symptoms", symptoms);
-      formData.append("language", language);
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Vision backend returned ${response.status}`);
-      }
-
-      const data = await response.json();
-      setResult({
-        connected: true,
-        condition: data.condition || data.diagnosis || "Vision result received",
-        explanation: data.explanation || data.symptoms || "The vision backend returned a result.",
-        advice: data.advice || data.management || "Follow the returned crop-specific guidance.",
-      });
-    } catch (error) {
-      const crop = cropById(cropId);
-      const symptomText = normalize(symptoms);
-      const matches = [];
-
-      crop.diseases.forEach((name) => {
-        const disease = DISEASES.find((item) => normalize(item.name).includes(normalize(name)) || normalize(name).includes(normalize(item.name)));
-        if (disease) {
-          const words = normalize(`${disease.name} ${disease.symptoms}`).split(" ");
-          const overlap = words.some((word) => word.length > 4 && symptomText.includes(word));
-          if (overlap) matches.push(disease);
-        }
-      });
-
-      setResult({
-        connected: false,
-        condition: matches[0]?.name || "Image captured — vision AI not connected",
-        explanation: matches[0]
-          ? `${matches[0].symptoms} Possible match based on the crop and symptom text; this is not an image diagnosis.`
-          : "The photograph is ready for a real vision model. The current frontend intentionally does not invent a disease name or confidence score from image pixels.",
-        advice: matches[0]
-          ? `${matches[0].causes}\n\nPrevention: ${matches[0].prevention}\n\nManagement: ${matches[0].management}`
-          : "Connect /api/plant/analyze to a vision model. Meanwhile, describe the symptom and use the Disease Guide to investigate possible conditions.",
-      });
-    } finally {
-      setBusy(false);
-    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const guidance = getPlantDoctorGuidance(cropId, symptoms);
+    setResult({
+      connected: false,
+      offline: true,
+      condition: guidance.possible,
+      explanation: `Offline symptom guidance for ${cropById(cropId).name}. The uploaded image was displayed locally but was not analyzed by a vision model. ${guidance.causes}`,
+      advice: `${guidance.prevention}\n\nGeneral care:\n${guidance.care.map((item) => `• ${item}`).join("\n")}`,
+    });
+    setOfflineStatus("Offline analysis complete — symptom guidance only.");
+    setBusy(false);
   }
 
   function clearPhoto() {
+    if (preview) URL.revokeObjectURL(preview);
     setFile(null);
     setPreview("");
     setResult(null);
     setSymptoms("");
+    setOfflineStatus("Offline-ready — no network or API key is needed for Plant Doctor.");
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   return (
@@ -3315,16 +3402,13 @@ function PlantDoctor({ text, language, farm }) {
             <div className="doctor-empty">
               <span>🌿</span>
               <h3>{text.plantHealth}</h3>
-              <p>
-                Add a clear plant image. A real vision backend can return a possible
-                condition, explanation and management guidance here.
-              </p>
+              <p>Add a plant image and describe symptoms for bundled offline guidance. The image is not diagnosed by this offline workflow.</p>
             </div>
           ) : (
             <div className="doctor-result">
               <div className="result-status">
                 <span className={result.connected ? "connected-dot" : "local-dot"} />
-                {result.connected ? "Vision AI connected" : "Local / no vision backend"}
+                {result.offline ? "Offline symptom guidance" : "Vision AI connected"}
               </div>
               <h2>{result.condition}</h2>
               <div className="result-section">
@@ -3340,6 +3424,7 @@ function PlantDoctor({ text, language, farm }) {
           )}
         </section>
       </div>
+      <p className="feature-intro" role="status">{offlineStatus}</p>
     </main>
   );
 }
@@ -3360,5 +3445,3 @@ function Footer() {
     </footer>
   );
 }
-
-

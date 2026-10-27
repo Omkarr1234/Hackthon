@@ -7,6 +7,10 @@ from groq import Groq
 from app.services.data_service import get_chat_faq
 
 
+class ChatProviderError(RuntimeError):
+    """Raised when a real AI answer cannot be produced."""
+
+
 # Load environment variables from the backend folder
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
@@ -92,8 +96,33 @@ Instructions:
 """.strip()
 
 
+def _demo_response(question: str, lang: str) -> str:
+    responses = {
+        "en": (
+            "Demo FarmSense response (sample, not live AI):\n\n"
+            f"For your question about “{question}”, check soil moisture at "
+            "root depth, consider recent rain, and follow crop-specific "
+            "guidance. Avoid applying pesticides or fertilizer without the "
+            "product label and local expert advice."
+        ),
+        "hi": (
+            "Demo FarmSense उत्तर (नमूना, लाइव AI नहीं):\n\n"
+            f"“{question}” के लिए मिट्टी की नमी और हाल की बारिश जाँचें। "
+            "फसल के अनुसार सलाह लें और लेबल तथा स्थानीय कृषि विशेषज्ञ की "
+            "सलाह के बिना कीटनाशक या खाद न डालें।"
+        ),
+        "kn": (
+            "Demo FarmSense ಉತ್ತರ (ಮಾದರಿ, ಲೈವ್ AI ಅಲ್ಲ):\n\n"
+            f"“{question}” ಬಗ್ಗೆ ಮಣ್ಣಿನ ತೇವಾಂಶ ಮತ್ತು ಇತ್ತೀಚಿನ ಮಳೆಯನ್ನು "
+            "ಪರಿಶೀಲಿಸಿ. ಉತ್ಪನ್ನದ ಲೇಬಲ್ ಮತ್ತು ಸ್ಥಳೀಯ ಕೃಷಿ ತಜ್ಞರ ಸಲಹೆಯಿಲ್ಲದೆ "
+            "ಕೀಟನಾಶಕ ಅಥವಾ ಗೊಬ್ಬರ ಬಳಸಬೇಡಿ."
+        ),
+    }
+    return responses.get(lang, responses["en"])
+
+
 def get_chat_response(crop_id: str, question: str, lang: str):
-    """Generate an agriculture answer using Groq only."""
+    """Generate an agriculture answer using Groq or an explicit demo mode."""
 
     question = (question or "").strip()
     lang = lang if lang in {"en", "kn", "hi"} else "en"
@@ -103,10 +132,9 @@ def get_chat_response(crop_id: str, question: str, lang: str):
 
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        return (
-            "AI service is not configured. "
-            "Please configure GROQ_API_KEY in backend/.env."
-        )
+        if os.getenv("FARMSENSE_DEMO_MODE", "true").lower() == "true":
+            return _demo_response(question, lang)
+        raise ChatProviderError("AI service is not configured on the backend.")
 
     model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
@@ -144,17 +172,11 @@ def get_chat_response(crop_id: str, question: str, lang: str):
             f"Finish reason: {response.choices[0].finish_reason}",
             flush=True,
         )
-        return (
-            "I couldn't generate a complete answer. "
-            "Please try asking your question again."
-        )
+        raise ChatProviderError("The AI provider returned an empty answer.")
 
     except Exception as exc:
         print(
             f"Groq chat error: {type(exc).__name__}: {exc}",
             flush=True,
         )
-        return (
-            "The AI service is temporarily unavailable. "
-            "Please try again shortly."
-        )
+        raise ChatProviderError("The AI service is temporarily unavailable.") from exc

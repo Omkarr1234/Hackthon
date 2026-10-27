@@ -1,0 +1,30 @@
+.mandi-page{max-width:1240px;margin:0 auto;padding:28px 22px 56px;color:var(--text,#17352a)}
+.mandi-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:30px;border-radius:24px;background:linear-gradient(120deg,#123d2d,#236b49);color:#fff}
+.mandi-eyebrow{font-size:11px;letter-spacing:1.7px;font-weight:800;opacity:.8}
+.mandi-hero h1{font-size:clamp(28px,4vw,42px);margin:10px 0}
+.mandi-hero p{margin:0;max-width:620px;line-height:1.6;color:#e3f2e9}
+.mandi-hero-icon{width:76px;height:76px;display:grid;place-items:center;border-radius:22px;background:#ffffff20;font-size:42px;font-weight:800}
+.mandi-filters{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end;padding:20px;margin:22px 0;border:1px solid #dce7df;border-radius:18px;background:var(--card,#fff)}
+.mandi-filters label{display:grid;gap:8px;font-size:13px;font-weight:700;color:var(--muted,#52665b)}
+.mandi-filters input,.mandi-filters select{width:100%;min-width:0;padding:12px 13px;border:1px solid #d3dfd6;border-radius:10px;background:#fff;color:#1b3428;font:inherit}
+.mandi-filters button{border:0;border-radius:10px;padding:13px 18px;background:#176b45;color:white;font-weight:800;cursor:pointer;white-space:nowrap}
+.mandi-filters button:disabled{opacity:.65;cursor:wait}
+.mandi-alert{padding:14px 16px;border-radius:12px;background:#fff4df;color:#784c0a;border:1px solid #f2d6a0;margin:16px 0}
+.mandi-loading{padding:24px;text-align:center;color:#476254}
+.mandi-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}
+.mandi-summary>div{padding:18px;border:1px solid #dce7df;border-radius:16px;background:#fff;display:grid;gap:8px}
+.mandi-summary span{font-size:12px;color:#63766a}
+.mandi-summary strong{font-size:20px;color:#174a33}
+.mandi-results{border:1px solid #dce7df;border-radius:18px;background:#fff;overflow:hidden}
+.mandi-section-head{padding:20px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mandi-section-head h2{margin:0 0 5px;font-size:21px}
+.mandi-section-head p{margin:0;color:#687a6f;font-size:13px}
+.mandi-source{font-size:11px;color:#5b7464;background:#edf6ef;border-radius:999px;padding:8px 10px}
+.mandi-table-wrap{width:100%;overflow-x:auto}
+.mandi-table{width:100%;border-collapse:collapse;min-width:850px}
+.mandi-table th,.mandi-table td{padding:14px 16px;text-align:left;border-top:1px solid #edf1ed;font-size:13px}
+.mandi-table th{background:#f6faf7;color:#63766a;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.mandi-price{font-weight:800;color:#174a33}
+.price-up{color:#167144;font-weight:700}.price-down{color:#b53b32;font-weight:700}
+.mandi-disclaimer,.mandi-updated{font-size:12px;line-height:1.6;color:#65786b;margin:16px 4px}
+@media(max-width:760px){.mandi-page{padding:16px 12px 36px}.mandi-hero{padding:22px;border-radius:18px}.mandi-hero-icon{width:54px;height:54px;font-size:30px;border-radius:16px}.mandi-filters{grid-template-columns:1fr;padding:15px}.mandi-filters button{width:100%}.mandi-summary{grid-template-columns:1fr}.mandi-section-head{align-items:flex-start;flex-direction:column}.mandi-source{white-space:normal}}

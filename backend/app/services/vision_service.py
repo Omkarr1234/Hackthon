@@ -1,96 +1,141 @@
-
+import base64
 import os
-from pathlib import Path
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-
-from app.services.data_service import get_chat_faq
+from groq import Groq
 
 
-# Load environment variables from the backend folder
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-load_dotenv(BACKEND_DIR / ".env")
+LANGUAGE_NAMES = {
+    "en": "English",
+    "hi": "Hindi",
+    "kn": "Kannada",
+}
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
-# Configure Gemini with a 20-second HTTP timeout
-_client = (
-    genai.Client(
-        api_key=API_KEY,
-        http_options=types.HttpOptions(timeout=60000),
+def _fallback(crop: str, symptoms: str, language: str, demo_mode: bool) -> dict:
+    language_name = LANGUAGE_NAMES.get(language, "English")
+    symptom_note = (
+        f" The farmer also reported: {symptoms.strip()}"
+        if symptoms.strip()
+        else ""
     )
-    if API_KEY
-    else None
-)
+    if not demo_mode:
+        return {
+            "connected": False,
+            "demo": False,
+            "condition": "Vision model configuration required",
+            "explanation": (
+                "Live Plant Doctor image analysis is unavailable because "
+                "GROQ_API_KEY and a supported GROQ_VISION_MODEL are not "
+                "configured on the backend."
+            ),
+            "advice": (
+                "Configure the backend vision provider, or use Demo Mode "
+                "for a clearly labelled sample result."
+            ),
+        }
+    return {
+        "connected": False,
+        "demo": True,
+        "condition": "Image received — vision model not configured",
+        "explanation": (
+            f"The {crop or 'plant'} image was received, but no vision model "
+            f"is enabled on this backend. Do not treat this photo as a "
+            f"confirmed diagnosis.{symptom_note}"
+        ),
+        "advice": (
+            f"Describe the affected plant part, symptom pattern and recent "
+            f"weather in {language_name}. Compare those observations with the "
+            f"Disease Guide and consult a local agriculture expert before "
+            f"using any pesticide."
+        ),
+    }
 
 
-def _normalize(text: str) -> str:
-    return (text or "").strip().lower()
-
-
-def _match_faq(crop_id: str, question: str):
-    """Return an FAQ only when one of its keywords matches."""
-    normalized_question = _normalize(question)
-
-    if not normalized_question:
-        return None
-
-    try:
-        faq_items = get_chat_faq()
-    except Exception as exc:
-        print(
-            f"FarmSense FAQ error: {type(exc).__name__}: {exc}",
-            flush=True,
-        )
-        return None
-
-    for item in faq_items:
-        keywords = item.get("keywords", [])
-
-        if any(
-            str(keyword).lower() in normalized_question
-            for keyword in keywords
-        ):
-            return item
-
-    return None
-
-
-def _build_prompt(question: str, lang: str, crop_id: str = "") -> str:
-    language = {"kn": "Kannada", "hi": "Hindi", "en": "English"}.get(lang, "English")
-    crop_context = (
-        f"The user explicitly included this crop context: {crop_id}. Use it only if relevant."
-        if crop_id else
-        "No saved Farm Profile, crop, soil moisture, rainfall, or field decision context is supplied. Answer the user's actual question independently."
-    )
+def _prompt(crop: str, symptoms: str, language: str) -> str:
+    language_name = LANGUAGE_NAMES.get(language, "English")
     return f"""
-You are FarmSense AI, a general-purpose agriculture assistant for farmers in India. You can answer questions about crop cultivation, soil, irrigation, farm machinery, tractors, labour planning, post-harvest handling, agricultural business, market concepts, and agricultural techniques.
+You are FarmSense Plant Doctor, an agriculture image-screening assistant.
+Respond in {language_name}. The crop is {crop or "unknown"}.
+Farmer's symptom notes: {symptoms.strip() or "none supplied"}.
 
-Reply in {language}.
+Return a concise response with exactly these labels:
+Possible condition:
+What the image suggests:
+Next steps:
 
-USER'S EXACT QUESTION:
-{question}
-
-CONTEXT POLICY:
-{crop_context}
-
-Instructions:
-- Answer the exact question in practical, simple language.
-- Do not restrict answers to tomatoes or a local FAQ database.
-- Do not infer or invent farm-profile details.
-- For crop-growing questions, give relevant step-by-step guidance including timing and common mistakes.
-- Ask a short clarification when essential information is missing.
-- Do not invent live weather, current mandi prices, government scheme eligibility, citations, or measurements you cannot access.
-- Clearly label uncertainty. Do not diagnose a plant disease with certainty from insufficient evidence.
-- Never invent pesticide dosages. Follow product labels and recommend local agriculture experts for uncertain diagnoses or chemical treatment.
-- For machinery safety questions, advise turning off the engine, securing the machine, and consulting a qualified mechanic where appropriate.
-- Organize longer answers with headings and numbered steps. Finish the answer completely.
+This is screening, not a confirmed diagnosis. State uncertainty, do not
+invent pesticide dosages, and recommend a local agriculture expert for
+serious or spreading symptoms.
 """.strip()
 
 
-def get_chat_response(crop_id: str, question: str, lang: str):
-    """Answer independently with Groq when configured, otherwise Gemini."""
-    lang = lang if lang in {"en", "kn", "hi"} else "en"
+def _analyze_with_groq(
+    image_bytes: bytes,
+    content_type: str,
+    crop: str,
+    symptoms: str,
+    language: str,
+) -> dict:
+    api_key = os.getenv("GROQ_API_KEY")
+    model = os.getenv("GROQ_VISION_MODEL")
+    if not api_key or not model:
+        return _fallback(
+            crop,
+            symptoms,
+            language,
+            os.getenv("FARMSENSE_DEMO_MODE", "true").lower() == "true",
+        )
+
+    client = Groq(api_key=api_key, timeout=45.0, max_retries=1)
+    image_data = base64.b64encode(image_bytes).decode("ascii")
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _prompt(crop, symptoms, language)},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{content_type};base64,{image_data}",
+                        },
+                    },
+                ],
+            }
+        ],
+        max_completion_tokens=900,
+    )
+    answer = response.choices[0].message.content
+    if not answer or not answer.strip():
+        raise RuntimeError("Vision model returned an empty response.")
+
+    return {
+        "connected": True,
+        "demo": False,
+        "condition": "Possible condition — see screening details",
+        "explanation": answer.strip(),
+        "advice": (
+            "This is AI-assisted screening only, not a confirmed diagnosis. "
+            "Follow product labels and consult a local agriculture expert "
+            "before treatment."
+        ),
+    }
+
+
+def analyze_plant_image(
+    image_bytes: bytes,
+    content_type: str,
+    crop: str,
+    symptoms: str,
+    language: str,
+) -> dict:
+    if language not in LANGUAGE_NAMES:
+        language = "en"
+    return _analyze_with_groq(
+        image_bytes,
+        content_type,
+        crop.strip(),
+        symptoms.strip(),
+        language,
+    )
